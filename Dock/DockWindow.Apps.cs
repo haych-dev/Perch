@@ -2,6 +2,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using Perch.Core;
 
 namespace Perch.Dock;
@@ -41,6 +42,7 @@ public sealed partial class DockWindow
         }
         foreach (var g in groups.Where(g => !used.Contains(g))) entries.Add(("run:" + g.Key, null, g));
 
+        if (_appsGroup != null) _appsGroup.Visibility = entries.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         string sig = string.Join("|", entries.Select(e => e.Key));
         var lastActive = WindowTracker.Instance.LastActive;
         if (sig != _appSignature)
@@ -155,9 +157,19 @@ public sealed partial class DockWindow
 
     void MaybeStartDrag(Slot slot, MouseEventArgs e)
     {
-        if (_pressSlot != slot || e.LeftButton != MouseButtonState.Pressed || _dragging || Settings.Current.Locked) return;
+        if (_pressSlot != slot || e.LeftButton != MouseButtonState.Pressed || _dragging) return;
         var p = e.GetPosition(this);
         if (Math.Abs(p.X - _pressPoint.X) < 8 && Math.Abs(p.Y - _pressPoint.Y) < 8) return;
+        if (Settings.Current.Locked)
+        {
+            // Say why nothing moves, instead of silently ignoring the drag.
+            _dragged = true; // so releasing doesn't count as a click
+            _hover = slot;
+            _labelText.Text = "The dock is locked. Right-click the dock and untick Lock dock to move things.";
+            _label.Visibility = Visibility.Visible;
+            PlaceLabel();
+            return;
+        }
         if (slot.App != null && slot.App.Pin == null && slot.App.Group == null) return;
         _dragged = true;
         _dragging = true;
@@ -165,9 +177,12 @@ public sealed partial class DockWindow
         CloseCard();
         _label.Visibility = Visibility.Collapsed;
         slot.Opacity = 0.45;
+        slot.ReleaseMouseCapture(); // drag and drop takes over the pointer from here
+        _root.Background = new SolidColorBrush(Color.FromArgb(1, 0, 0, 0)); // catch drops anywhere on the strip
         try { DragDrop.DoDragDrop(slot, new DataObject("perch/slot", slot), DragDropEffects.Move); }
         finally
         {
+            _root.Background = null;
             slot.Opacity = 1;
             _dragging = false;
             _pressSlot = null;

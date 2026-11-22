@@ -26,11 +26,14 @@ public sealed class AppIcon : Grid
         Width = size;
         Height = size;
         ClipToBounds = false;
-        _image = new Image { Width = size, Height = size, Stretch = Stretch.Uniform };
+        // The icon sits inside the app group's background, leaving room underneath for the open-app dot.
+        double img = Math.Round(size * 0.76);
+        double lift = Math.Round(size * 0.05);
+        _image = new Image { Width = img, Height = img, Stretch = Stretch.Uniform, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 0, lift * 2) };
         RenderOptions.SetBitmapScalingMode(_image, BitmapScalingMode.HighQuality);
-        _fallback = Ui.Text("", size * 0.42, FontWeights.SemiBold, "Dock.Text");
+        _fallback = Ui.Text("", size * 0.34, FontWeights.SemiBold, "Dock.Text");
         _fallback.HorizontalAlignment = HorizontalAlignment.Center;
-        var fallbackTile = new Border { CornerRadius = new CornerRadius(size * 0.24), Child = _fallback, Visibility = Visibility.Collapsed };
+        var fallbackTile = new Border { Width = img, Height = img, CornerRadius = new CornerRadius(img * 0.24), Child = _fallback, Visibility = Visibility.Collapsed, Margin = new Thickness(0, 0, 0, lift * 2) };
         fallbackTile.SetResourceReference(Border.BackgroundProperty, "Tile.Hover");
         _indicator = new Border
         {
@@ -39,7 +42,7 @@ public sealed class AppIcon : Grid
             CornerRadius = new CornerRadius(2),
             VerticalAlignment = VerticalAlignment.Bottom,
             HorizontalAlignment = HorizontalAlignment.Center,
-            Margin = new Thickness(0, 0, 0, -Math.Max(3, padding - 1.5)),
+            Margin = new Thickness(0, 0, 0, Math.Max(2, lift * 0.6)),
             Visibility = Visibility.Collapsed,
             IsHitTestVisible = false,
         };

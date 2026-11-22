@@ -8,6 +8,7 @@
     <SolidColorBrush x:Key="Dock.Dim" Color="#A8B0BE" />
     <SolidColorBrush x:Key="Tile.Fill" Color="#14FFFFFF" />
     <SolidColorBrush x:Key="Tile.Hover" Color="#24FFFFFF" />
+    <SolidColorBrush x:Key="Tile.Stroke" Color="Transparent" />
     <SolidColorBrush x:Key="Card.Fill" Color="#F21A1C23" />
     <SolidColorBrush x:Key="Card.Stroke" Color="#2EFFFFFF" />
     <SolidColorBrush x:Key="Card.Text" Color="#F2F4F8" />

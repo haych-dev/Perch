@@ -43,10 +43,11 @@ public sealed class SeparatorWidget : Widget
 
     protected override FrameworkElement BuildTile()
     {
-        var line = new Border { Width = 1.5, Height = Size * 0.62, CornerRadius = new CornerRadius(1), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(2, 0, 2, 0) };
-        line.SetResourceReference(Border.BackgroundProperty, "Dock.Dim");
-        line.Opacity = 0.45;
-        return new Grid { Height = Size, Children = { line } };
+        var line = new Border { Width = 2, Height = Size * 0.62, CornerRadius = new CornerRadius(1), VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center };
+        line.SetResourceReference(Border.BackgroundProperty, "Dock.Text");
+        line.Opacity = 0.35;
+        // The line is thin, but the area you can right-click or drag is a comfortable width.
+        return new Grid { Height = Size, Width = Math.Max(14, 16 * Scale), Background = new SolidColorBrush(Color.FromArgb(1, 0, 0, 0)), Children = { line } };
     }
 
     public override void OnClick() { }
@@ -87,10 +88,10 @@ public sealed class TrashWidget : Widget
 
     protected override FrameworkElement BuildTile()
     {
-        _img = new Image { Width = Size, Height = Size };
+        _img = new Image { Width = Size * 0.72, Height = Size * 0.72 };
         RenderOptions.SetBitmapScalingMode(_img, BitmapScalingMode.HighQuality);
         Tick();
-        return _img;
+        return IconFrame(_img);
     }
 
     public override void Tick()
@@ -151,9 +152,9 @@ public sealed class DownloadsWidget : Widget
 
     protected override FrameworkElement BuildTile()
     {
-        var img = new Image { Width = Size, Height = Size, Source = ShellIcons.Get(Folder) };
+        var img = new Image { Width = Size * 0.72, Height = Size * 0.72, Source = ShellIcons.Get(Folder) };
         RenderOptions.SetBitmapScalingMode(img, BitmapScalingMode.HighQuality);
-        return img.Source != null ? img : IconFrame(TileGlyph("", 19));
+        return img.Source != null ? IconFrame(img) : IconFrame(TileGlyph("", 19));
     }
 
     public override FrameworkElement? BuildCard()

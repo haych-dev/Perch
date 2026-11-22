@@ -70,6 +70,8 @@ public abstract class Widget
         };
         if (width != null) b.Width = width.Value;
         b.SetResourceReference(Border.BackgroundProperty, "Tile.Fill");
+        b.BorderThickness = new Thickness(1);
+        b.SetResourceReference(Border.BorderBrushProperty, "Tile.Stroke");
         b.MouseEnter += (_, _) => b.SetResourceReference(Border.BackgroundProperty, "Tile.Hover");
         b.MouseLeave += (_, _) => b.SetResourceReference(Border.BackgroundProperty, "Tile.Fill");
         return b;

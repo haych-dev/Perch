@@ -38,6 +38,7 @@ public sealed partial class DockWindow : Window, IDockHost
     readonly List<Widget> _widgets = [];
     readonly List<string> _itemIds = [];
     StackPanel? _apps;
+    Grid? _appsGroup;
     readonly PreviewWindow _preview = new();
 
     IntPtr _hwnd;
@@ -117,6 +118,11 @@ public sealed partial class DockWindow : Window, IDockHost
         _items.AllowDrop = true;
         _items.DragOver += OnDragOver;
         _items.Drop += OnDrop;
+        // While a tile is being dragged the whole dock strip accepts the drop, so letting go just past
+        // either end of the bar still works (the empty part of the window is otherwise click-through).
+        _root.AllowDrop = true;
+        _root.DragOver += OnDragOver;
+        _root.Drop += OnDrop;
         _bar.SizeChanged += (_, _) => Dispatcher.BeginInvoke(UpdateGlass, DispatcherPriority.Render);
 
         Deactivated += (_, _) => CloseCard();
@@ -173,6 +179,7 @@ public sealed partial class DockWindow : Window, IDockHost
         _itemIds.Clear();
         _items.Children.Clear();
         _apps = null;
+        _appsGroup = null;
         _appIcons.Clear();
         _appSignature = ""; // the icons are gone, so the next refresh must recreate them
 
@@ -182,8 +189,23 @@ public sealed partial class DockWindow : Window, IDockHost
             if (id == "apps")
             {
                 if (_apps != null) continue;
-                _apps = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = AtTop ? VerticalAlignment.Top : VerticalAlignment.Bottom, ClipToBounds = false };
-                _items.Children.Add(_apps);
+                var edge = AtTop ? VerticalAlignment.Top : VerticalAlignment.Bottom;
+                _apps = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = edge, ClipToBounds = false, Margin = new Thickness(3, 0, 3, 0) };
+                // One rounded background behind all the app icons, the height of the other tiles.
+                // Magnified icons grow out of it; the background itself stays put.
+                var groupBg = new Border
+                {
+                    Height = s.IconSize,
+                    VerticalAlignment = edge,
+                    CornerRadius = new CornerRadius(Math.Min(14, s.IconSize * 0.3)),
+                    BorderThickness = new Thickness(1),
+                };
+                groupBg.SetResourceReference(Border.BackgroundProperty, "Tile.Fill");
+                groupBg.SetResourceReference(Border.BorderBrushProperty, "Tile.Stroke");
+                _appsGroup = new Grid { VerticalAlignment = edge, ClipToBounds = false, Margin = new Thickness(s.Spacing / 2.0, 0, s.Spacing / 2.0, 0) };
+                _appsGroup.Children.Add(groupBg);
+                _appsGroup.Children.Add(_apps);
+                _items.Children.Add(_appsGroup);
                 _itemIds.Add(id);
                 continue;
             }
@@ -218,7 +240,10 @@ public sealed partial class DockWindow : Window, IDockHost
         slot.LayoutTransform = slot.ScaleT;
         slot.MouseEnter += (_, _) => SetHover(slot);
         slot.MouseLeave += (_, _) => { if (_hover == slot) SetHover(null); };
-        slot.PreviewMouseLeftButtonDown += (_, e) => { _pressSlot = slot; _pressPoint = e.GetPosition(this); _dragged = false; };
+        // The pressed tile keeps the pointer until release, so a drag starts even when the pointer
+        // leaves a narrow tile (a divider) or magnification shifts the layout under it.
+        slot.PreviewMouseLeftButtonDown += (_, e) => { _pressSlot = slot; _pressPoint = e.GetPosition(this); _dragged = false; slot.CaptureMouse(); };
+        slot.AddHandler(MouseLeftButtonUpEvent, new MouseButtonEventHandler((_, _) => { if (slot.IsMouseCaptured) slot.ReleaseMouseCapture(); }), handledEventsToo: true);
         slot.PreviewMouseMove += (_, e) => MaybeStartDrag(slot, e);
         _slots.Add(slot);
         return slot;
@@ -323,7 +348,7 @@ public sealed partial class DockWindow : Window, IDockHost
     {
         if (_hwnd == IntPtr.Zero) return;
         var s = Settings.Current;
-        if (!Theme.IsGlass(s.Style) || !IsVisible || _fullscreenHidden || _slide >= 0.99 || _bar.ActualWidth < 4) { _glass.HideGlass(); return; }
+        if (!Theme.UsesBlur(s.Style) || !IsVisible || _fullscreenHidden || _slide >= 0.99 || _bar.ActualWidth < 4) { _glass.HideGlass(); return; }
         try
         {
             var p = _bar.PointToScreen(new Point(0, 0));
@@ -377,6 +402,11 @@ public sealed partial class DockWindow : Window, IDockHost
             });
         }
         else if (msg == 0x007E /* WM_DISPLAYCHANGE */ || msg == 0x02E0 /* WM_DPICHANGED */) QueueReposition();
+        else if (msg == (int)Native.WM_SETTINGCHANGE && lParam != IntPtr.Zero && Marshal.PtrToStringUni(lParam) == "ImmersiveColorSet")
+        {
+            // Transparency effects (or light/dark mode) changed in Windows Settings: switch the blur on or off to match.
+            Dispatcher.BeginInvoke(() => { Theme.Apply(); ApplyChrome(); UpdateGlass(); });
+        }
         return IntPtr.Zero;
     }
 
@@ -564,9 +594,15 @@ public sealed partial class DockWindow : Window, IDockHost
         if (_card != null) _card.IsOpen = false;
     }
 
+    /// <summary>Removes this tile. Dividers can appear several times, so the item is found by its position, not its id.</summary>
     public void Remove(Widget w)
     {
-        Settings.Update(s => s.Items.Remove(w.Id), rebuild: true);
+        var slot = _slots.FirstOrDefault(x => x.Widget == w);
+        int i = slot == null ? -1 : _items.Children.IndexOf(slot);
+        var ids = _itemIds.ToList();
+        if (i >= 0 && i < ids.Count && ids[i] == w.Id) ids.RemoveAt(i);
+        else ids.Remove(w.Id);
+        Settings.Update(s => s.Items = ids, rebuild: true);
     }
 
     public void Bounce(FrameworkElement e)
