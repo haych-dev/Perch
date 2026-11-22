@@ -27,18 +27,18 @@ public sealed class AppIcon : Grid
         Width = size;
         Height = size;
         ClipToBounds = false;
-        // Layout inside the tile, bottom to top: a gap, the open-app dot, a gap, then the icon.
-        // The space for the dot is always kept, so icons line up whether or not the app is open.
+        // The icon takes about 60% of the tile, like the other tiles' icons, so it has room around it.
+        // It is centred, nudged up by the dot's space; the dot sits in the gap below. The space is kept
+        // whether or not the app is open, so icons line up.
         _dot = Math.Round(Math.Max(4, size * 0.085));
         double gap = Math.Round(Math.Max(2, size * 0.05));
-        double reserve = gap + _dot + gap;
-        double img = Math.Round(Math.Min(size * 0.78, size - reserve - gap));
-        var iconMargin = new Thickness(0, 0, 0, reserve);
-        _image = new Image { Width = img, Height = img, Stretch = Stretch.Uniform, VerticalAlignment = VerticalAlignment.Bottom, Margin = iconMargin };
+        double img = Math.Round(size * 0.6);
+        var iconMargin = new Thickness(0, 0, 0, _dot + gap);
+        _image = new Image { Width = img, Height = img, Stretch = Stretch.Uniform, VerticalAlignment = VerticalAlignment.Center, Margin = iconMargin };
         RenderOptions.SetBitmapScalingMode(_image, BitmapScalingMode.HighQuality);
         _fallback = Ui.Text("", size * 0.34, FontWeights.SemiBold, "Dock.Text");
         _fallback.HorizontalAlignment = HorizontalAlignment.Center;
-        var fallbackTile = new Border { Width = img, Height = img, CornerRadius = new CornerRadius(img * 0.24), Child = _fallback, Visibility = Visibility.Collapsed, VerticalAlignment = VerticalAlignment.Bottom, Margin = iconMargin };
+        var fallbackTile = new Border { Width = img, Height = img, CornerRadius = new CornerRadius(img * 0.24), Child = _fallback, Visibility = Visibility.Collapsed, VerticalAlignment = VerticalAlignment.Center, Margin = iconMargin };
         fallbackTile.SetResourceReference(Border.BackgroundProperty, "Tile.Hover");
         _indicator = new Border
         {

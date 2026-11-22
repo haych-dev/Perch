@@ -231,7 +231,7 @@ public sealed class DayProgressWidget : Widget
 
     protected override FrameworkElement BuildTile()
     {
-        _ring = new RingGauge { Width = Size * 0.72, Height = Size * 0.72, Thickness = 3.5 * Scale, LabelSize = 10.5 * Scale };
+        _ring = new RingGauge { Width = Size * 0.64, Height = Size * 0.64, Thickness = 3.2 * Scale, LabelSize = 9.5 * Scale };
         Tick();
         return IconFrame(_ring);
     }

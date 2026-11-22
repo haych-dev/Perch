@@ -33,9 +33,11 @@ public partial class App : Application
         _single = new Mutex(true, MutexName, out bool first);
         if (!first)
         {
+            // Perch is already running: leave it, its taskbar and its settings alone.
             Shutdown();
             return;
         }
+        _primary = true;
         ListenForQuit();
 
         base.OnStartup(e);
@@ -64,11 +66,20 @@ public partial class App : Application
         Settings.SaveNow();
     }
 
+    /// <summary>True only in the copy of Perch that is running the dock.</summary>
+    static bool _primary;
+
     protected override void OnExit(ExitEventArgs e)
     {
-        try { _dock?.Shutdown(); } catch { }
-        Taskbar.Restore();
-        Settings.SaveNow();
+        // A second copy that started and exited at once (opened again from Start, or "--quit") must not
+        // restore the taskbar or save its own copy of the settings: that would undo the running dock's
+        // auto-hide (the taskbar then reserves space and the dock moves up) and could overwrite newer settings.
+        if (_primary)
+        {
+            try { _dock?.Shutdown(); } catch { }
+            Taskbar.Restore();
+            Settings.SaveNow();
+        }
         base.OnExit(e);
     }
 

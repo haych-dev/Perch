@@ -101,7 +101,7 @@ public sealed class TrashWidget : Widget
 
     protected override FrameworkElement BuildTile()
     {
-        _img = new Image { Width = Size * 0.72, Height = Size * 0.72 };
+        _img = new Image { Width = Size * 0.6, Height = Size * 0.6 };
         RenderOptions.SetBitmapScalingMode(_img, BitmapScalingMode.HighQuality);
         Tick();
         return IconFrame(_img);
@@ -165,7 +165,7 @@ public sealed class DownloadsWidget : Widget
 
     protected override FrameworkElement BuildTile()
     {
-        var img = new Image { Width = Size * 0.72, Height = Size * 0.72, Source = ShellIcons.Get(Folder) };
+        var img = new Image { Width = Size * 0.6, Height = Size * 0.6, Source = ShellIcons.Get(Folder) };
         RenderOptions.SetBitmapScalingMode(img, BitmapScalingMode.HighQuality);
         return img.Source != null ? IconFrame(img) : IconFrame(TileGlyph("", 19));
     }
