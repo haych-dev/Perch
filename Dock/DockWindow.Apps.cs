@@ -68,7 +68,7 @@ public sealed partial class DockWindow
         }
         foreach (var e in entries)
         {
-            var icon = _appIcons[e.Key].App!;
+            if (!_appIcons.TryGetValue(e.Key, out var s2) || s2.App is not { } icon) { _appSignature = ""; continue; }
             bool active = e.Group != null && e.Group.Windows.Any(w => w.Hwnd == lastActive) && !Native.IsIconic(lastActive);
             icon.Update(e.Pin, e.Group, active);
         }

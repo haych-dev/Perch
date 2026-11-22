@@ -174,6 +174,7 @@ public sealed partial class DockWindow : Window, IDockHost
         _items.Children.Clear();
         _apps = null;
         _appIcons.Clear();
+        _appSignature = ""; // the icons are gone, so the next refresh must recreate them
 
         var s = Settings.Current;
         foreach (var id in s.Items)
