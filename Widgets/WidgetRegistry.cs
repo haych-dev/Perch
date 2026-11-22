@@ -6,6 +6,7 @@ public static class WidgetRegistry
     [
         ("start", () => new StartWidget()),
         ("search", () => new SearchWidget()),
+        ("tray", () => new TrayWidget()),
         ("sep", () => new SeparatorWidget()),
         ("clock", () => new ClockWidget()),
         ("date", () => new DateWidget()),

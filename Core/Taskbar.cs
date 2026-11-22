@@ -59,10 +59,27 @@ public static class Taskbar
         _guard.Start();
     }
 
+    static DateTime _peekUntil;
+
+    /// <summary>
+    /// Brings up the real Windows taskbar so its tray (volume, Wi-Fi, battery, notifications, background-app
+    /// icons) can be used. Giving it focus slides an auto-hidden taskbar into view, the same as the Windows key.
+    /// It is hidden again once something else has focus.
+    /// </summary>
+    public static void Peek()
+    {
+        var primary = Primary;
+        if (primary == IntPtr.Zero) return;
+        _peekUntil = DateTime.Now.AddSeconds(1.5); // time for focus to land before the guard looks again
+        Native.ShowWindow(primary, Native.SW_SHOWNA);
+        Native.SetForegroundWindow(primary);
+    }
+
     static void Enforce()
     {
         if (!IsHidden) return;
-        if (ShellSurfaceOpen()) return; // leave Start, search and the notification centre alone
+        if (DateTime.Now < _peekUntil) return; // a Tray click is bringing it up
+        if (ShellSurfaceOpen()) return; // leave Start, search, the tray and its flyouts alone
         foreach (var h in AllTaskbars())
             if (Native.IsWindowVisible(h)) Native.ShowWindow(h, Native.SW_HIDE);
     }
@@ -73,8 +90,9 @@ public static class Taskbar
         var fg = Native.GetForegroundWindow();
         if (fg == IntPtr.Zero) return false;
         var cls = Native.GetClass(fg);
-        if (cls is "Shell_TrayWnd" or "Shell_SecondaryTrayWnd" or "NotifyIconOverflowWindow" or "TopLevelWindowForOverflowXamlIsland" or "Xaml_WindowedPopupClass") return true;
-        if (cls != "Windows.UI.Core.CoreWindow") return false;
+        if (cls is "Shell_TrayWnd" or "Shell_SecondaryTrayWnd" or "NotifyIconOverflowWindow" or "TopLevelWindowForOverflowXamlIsland" or "Xaml_WindowedPopupClass" or "ControlCenterWindow") return true;
+        // Panels are recognised by the program that owns them: their window types change between Windows
+        // builds (Quick Settings is a "ControlCenterWindow" owned by ShellHost on recent Windows 11).
         Native.GetWindowThreadProcessId(fg, out int pid);
         var exe = System.IO.Path.GetFileNameWithoutExtension(Native.GetProcessPath(pid) ?? "");
         return exe is "StartMenuExperienceHost" or "SearchHost" or "SearchApp" or "ShellExperienceHost" or "ShellHost";

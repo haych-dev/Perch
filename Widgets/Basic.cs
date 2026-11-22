@@ -34,6 +34,19 @@ public sealed class StartWidget : Widget
     }
 }
 
+public sealed class TrayWidget : Widget
+{
+    public override string Id => "tray";
+    public override string Name => "System tray";
+    public override string Category => "Essentials";
+    public override string Description => "Brings up the Windows tray: volume, Wi-Fi, battery, notifications and background-app icons. It hides again when you click away.";
+    public override bool IsIcon => true;
+
+    protected override FrameworkElement BuildTile() => IconFrame(TileGlyph("", 17));
+
+    public override void OnClick() => Taskbar.Peek();
+}
+
 public sealed class SeparatorWidget : Widget
 {
     public override string Id => "sep";

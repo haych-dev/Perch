@@ -59,7 +59,10 @@ public sealed class Settings
     public List<string> WorldClocks { get; set; } = [];
 
     /// <summary>Ordered dock contents: "start", "apps", "sep" and widget ids.</summary>
-    public List<string> Items { get; set; } = ["start", "search", "apps", "sep", "nowplaying", "weather", "cpu", "memory", "volume", "toggles", "clock", "trash"];
+    public List<string> Items { get; set; } = ["start", "search", "apps", "sep", "nowplaying", "weather", "cpu", "memory", "volume", "toggles", "tray", "clock", "trash"];
+
+    /// <summary>Which one-time upgrades have been applied to these settings (see <see cref="Upgrade"/>).</summary>
+    public int Schema { get; set; }
     public List<PinnedApp> Pins { get; set; } = [];
     public bool PinsImported { get; set; }
 
@@ -80,23 +83,63 @@ public sealed class Settings
 
     public static string Folder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Perch");
     static string FilePath => Path.Combine(Folder, "settings.json");
-    static readonly JsonSerializerOptions Json = new() { WriteIndented = true };
+    // The weather location is NaN until a place is chosen; JSON has no NaN, so it is written as "NaN".
+    // Without this, every save failed until a place was set.
+    static readonly JsonSerializerOptions Json = new()
+    {
+        WriteIndented = true,
+        NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowNamedFloatingPointLiterals,
+    };
     static DispatcherTimer? _saveTimer;
 
     static Settings Load()
     {
-        try
+        if (!File.Exists(FilePath)) return Fresh();
+        // At sign-in the file can be briefly locked (antivirus, indexing), so a failed read is retried
+        // rather than quietly starting with defaults, which would then be saved over the user's settings.
+        for (int attempt = 1; ; attempt++)
         {
-            if (File.Exists(FilePath))
+            try
             {
-                var s = JsonSerializer.Deserialize<Settings>(File.ReadAllText(FilePath)) ?? new Settings();
+                var s = JsonSerializer.Deserialize<Settings>(File.ReadAllText(FilePath), Json) ?? Fresh();
                 s.IconSize = Math.Clamp(s.IconSize, 24, 96);
                 s.MagnifyScale = Math.Clamp(s.MagnifyScale, 1.0, 2.2);
+                s.Upgrade();
                 return s;
             }
+            catch (IOException ex) when (attempt < 10)
+            {
+                Log.Error(ex, $"settings.json could not be read (attempt {attempt}); retrying");
+                Thread.Sleep(300);
+            }
+            catch (Exception ex)
+            {
+                // Keep the unreadable file so nothing is lost, and say so in the log.
+                Log.Error(ex, "settings.json could not be loaded; starting with defaults");
+                try { File.Copy(FilePath, Path.Combine(Folder, $"settings.unreadable-{DateTime.Now:yyyyMMdd-HHmmss}.json"), true); } catch { }
+                return Fresh();
+            }
         }
-        catch { }
-        return new Settings();
+    }
+
+    const int CurrentSchema = 1;
+
+    /// <summary>Settings for a first run: already up to date, so no upgrade is applied to them later.</summary>
+    static Settings Fresh() => new() { Schema = CurrentSchema };
+
+    /// <summary>One-time changes for settings saved by an older Perch.</summary>
+    void Upgrade()
+    {
+        if (Schema < 1)
+        {
+            // 0.1.4 added the System tray button: put it on existing docks, just before the clock.
+            if (!Items.Contains("tray"))
+            {
+                int clock = Items.IndexOf("clock");
+                Items.Insert(clock >= 0 ? clock : Items.Count, "tray");
+            }
+            Schema = 1;
+        }
     }
 
     /// <summary>Applies a change, saves soon, and tells the dock.</summary>
@@ -126,6 +169,21 @@ public sealed class Settings
             var tmp = FilePath + ".tmp";
             File.WriteAllText(tmp, JsonSerializer.Serialize(Current, Json));
             File.Move(tmp, FilePath, true);
+        }
+        catch (Exception ex) { Log.Error(ex, "settings.json could not be saved"); }
+    }
+}
+
+/// <summary>Appends errors to %AppData%\Perch\errors.log. Never throws.</summary>
+public static class Log
+{
+    public static void Error(Exception ex, string? context = null)
+    {
+        try
+        {
+            Directory.CreateDirectory(Settings.Folder);
+            File.AppendAllText(Path.Combine(Settings.Folder, "errors.log"),
+                $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {(context != null ? context + ": " : "")}{ex}\n\n");
         }
         catch { }
     }

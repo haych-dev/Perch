@@ -67,7 +67,17 @@ public static class ShellIcons
         for (int i = 3; i < pixels.Length; i += 4) if (pixels[i] != 0) { anyAlpha = true; break; }
         if (!anyAlpha) for (int i = 3; i < pixels.Length; i += 4) pixels[i] = 255;
 
-        var bmp = BitmapSource.Create(w, h, 96, 96, PixelFormats.Pbgra32, null, pixels, stride);
+        // The shell hands back either premultiplied or straight alpha depending on the icon.
+        // In premultiplied data no colour channel can exceed alpha; if one does, the data is straight.
+        // Treating straight alpha as premultiplied makes soft edges too bright: a pale halo round the icon.
+        bool straight = false;
+        for (int i = 0; i < pixels.Length && !straight; i += 4)
+        {
+            byte a = pixels[i + 3];
+            if (pixels[i] > a || pixels[i + 1] > a || pixels[i + 2] > a) straight = true;
+        }
+
+        var bmp = BitmapSource.Create(w, h, 96, 96, straight ? PixelFormats.Bgra32 : PixelFormats.Pbgra32, null, pixels, stride);
         bmp.Freeze();
         return bmp;
     }

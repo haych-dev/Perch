@@ -98,13 +98,5 @@ public partial class App : Application
         }
     }
 
-    public static void Log(Exception ex)
-    {
-        try
-        {
-            Directory.CreateDirectory(Settings.Folder);
-            File.AppendAllText(Path.Combine(Settings.Folder, "errors.log"), $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {ex}\n\n");
-        }
-        catch { }
-    }
+    public static void Log(Exception ex) => Perch.Core.Log.Error(ex);
 }

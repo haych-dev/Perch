@@ -18,6 +18,7 @@ public sealed class AppIcon : Grid
     readonly TextBlock _fallback;
     readonly double _size;
     string _state = "";
+    readonly double _dot;
 
     public AppIcon(string key, double size, double padding)
     {
@@ -26,23 +27,27 @@ public sealed class AppIcon : Grid
         Width = size;
         Height = size;
         ClipToBounds = false;
-        // The icon sits inside the app group's background, leaving room underneath for the open-app dot.
-        double img = Math.Round(size * 0.76);
-        double lift = Math.Round(size * 0.05);
-        _image = new Image { Width = img, Height = img, Stretch = Stretch.Uniform, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 0, lift * 2) };
+        // Layout inside the tile, bottom to top: a gap, the open-app dot, a gap, then the icon.
+        // The space for the dot is always kept, so icons line up whether or not the app is open.
+        _dot = Math.Round(Math.Max(4, size * 0.085));
+        double gap = Math.Round(Math.Max(2, size * 0.05));
+        double reserve = gap + _dot + gap;
+        double img = Math.Round(Math.Min(size * 0.78, size - reserve - gap));
+        var iconMargin = new Thickness(0, 0, 0, reserve);
+        _image = new Image { Width = img, Height = img, Stretch = Stretch.Uniform, VerticalAlignment = VerticalAlignment.Bottom, Margin = iconMargin };
         RenderOptions.SetBitmapScalingMode(_image, BitmapScalingMode.HighQuality);
         _fallback = Ui.Text("", size * 0.34, FontWeights.SemiBold, "Dock.Text");
         _fallback.HorizontalAlignment = HorizontalAlignment.Center;
-        var fallbackTile = new Border { Width = img, Height = img, CornerRadius = new CornerRadius(img * 0.24), Child = _fallback, Visibility = Visibility.Collapsed, Margin = new Thickness(0, 0, 0, lift * 2) };
+        var fallbackTile = new Border { Width = img, Height = img, CornerRadius = new CornerRadius(img * 0.24), Child = _fallback, Visibility = Visibility.Collapsed, VerticalAlignment = VerticalAlignment.Bottom, Margin = iconMargin };
         fallbackTile.SetResourceReference(Border.BackgroundProperty, "Tile.Hover");
         _indicator = new Border
         {
-            Height = 4,
-            Width = 4,
-            CornerRadius = new CornerRadius(2),
+            Height = _dot,
+            Width = _dot,
+            CornerRadius = new CornerRadius(_dot / 2),
             VerticalAlignment = VerticalAlignment.Bottom,
             HorizontalAlignment = HorizontalAlignment.Center,
-            Margin = new Thickness(0, 0, 0, Math.Max(2, lift * 0.6)),
+            Margin = new Thickness(0, 0, 0, gap),
             Visibility = Visibility.Collapsed,
             IsHitTestVisible = false,
         };
@@ -76,10 +81,12 @@ public sealed class AppIcon : Grid
         string state = $"{active}{line}";
         if (state == _state) return;
         _state = state;
-        _indicator.Width = line ? (active ? _size * 0.42 : _size * 0.2) : (active ? 6 : 4);
-        _indicator.Height = line ? 3 : (active ? 6 : 4);
+        // Same size and position for every open app; the one in front just takes the accent colour
+        // (the "line" style also gets a little longer).
+        _indicator.Width = line ? (active ? _size * 0.36 : _size * 0.2) : _dot;
+        _indicator.Height = line ? Math.Max(3, _dot * 0.6) : _dot;
         _indicator.CornerRadius = new CornerRadius(_indicator.Height / 2);
         _indicator.SetResourceReference(Border.BackgroundProperty, active ? "Accent" : "Dock.Text");
-        _indicator.Opacity = active ? 1 : 0.65;
+        _indicator.Opacity = active ? 1 : 0.55;
     }
 }
