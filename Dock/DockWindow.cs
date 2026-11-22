@@ -379,12 +379,19 @@ public sealed partial class DockWindow : Window, IDockHost
         return IntPtr.Zero;
     }
 
+    bool _shutDown;
+
+    /// <summary>Releases the app bar and closes the helper windows. Safe to call more than once,
+    /// including while the glass window (the dock's owner) is itself closing.</summary>
     public void Shutdown()
     {
+        if (_shutDown) return;
+        _shutDown = true;
         _poll.Stop();
+        _second.Stop();
         UnregisterAppBar();
-        _preview.Close();
-        _glass.Close();
+        try { _preview.Close(); } catch (InvalidOperationException) { }
+        try { _glass.Close(); } catch (InvalidOperationException) { }
     }
 
     // ───────────────────────── Magnification and labels ─────────────────────────

@@ -43,6 +43,20 @@ Perch saves the taskbar's original state before hiding it and restores it when i
 Perch.exe --restore-taskbar
 ```
 
+The installer also adds a **Perch - restore the taskbar** shortcut to the Start menu that does the same. `Perch.exe --quit` closes a running Perch the normal way.
+
+## Install
+
+`Perch-<version>-win-x64-setup.exe` installs Perch for your account (no administrator prompt) with a Start menu entry, and by default starts it when you sign in. It carries its own .NET runtime, so nothing else is needed. Uninstall it from **Settings › Apps › Installed apps**; the taskbar comes back straight away, and you're asked whether to keep your settings, pins, to-dos and notes.
+
+To build the installer yourself you need the .NET 10 SDK and [Inno Setup 6](https://jrsoftware.org/isinfo.php):
+
+```powershell
+.\tools\build-installer.ps1
+```
+
+It writes the setup file to `publish\`.
+
 ## Build and run
 
 Requires the .NET 10 SDK.
@@ -61,4 +75,4 @@ To quit, right-click an empty part of the dock and choose **Quit Perch**.
 
 - One dock, on one display at a time.
 - No system tray (notification area) widget; while the taskbar is hidden, tray icons are only reachable by switching *Hide the Windows taskbar* off.
-- No installer or code signing.
+- No code signing, so Windows SmartScreen may warn the first time the installer runs.

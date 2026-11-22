@@ -16,18 +16,27 @@ public partial class App : Application
         // "Perch.exe --restore-taskbar" puts the Windows taskbar back without starting the dock.
         if (e.Args.Contains("--restore-taskbar", StringComparer.OrdinalIgnoreCase))
         {
-            Settings.Current.TaskbarOriginalState = Math.Max(Settings.Current.TaskbarOriginalState, 0);
+            // Shows the taskbar again; its auto-hide setting is only changed back if Perch saved the original.
             Taskbar.Restore();
             Shutdown();
             return;
         }
 
-        _single = new Mutex(true, "Perch.Dock.SingleInstance", out bool first);
+        // "Perch.exe --quit" asks a running Perch to quit the normal way (the installer and uninstaller use it).
+        if (e.Args.Contains("--quit", StringComparer.OrdinalIgnoreCase))
+        {
+            QuitRunningInstance();
+            Shutdown();
+            return;
+        }
+
+        _single = new Mutex(true, MutexName, out bool first);
         if (!first)
         {
             Shutdown();
             return;
         }
+        ListenForQuit();
 
         base.OnStartup(e);
         bool firstRun = !File.Exists(Path.Combine(Settings.Folder, "settings.json"));
@@ -61,6 +70,32 @@ public partial class App : Application
         Taskbar.Restore();
         Settings.SaveNow();
         base.OnExit(e);
+    }
+
+    const string MutexName = "Perch.Dock.SingleInstance";
+    const string QuitEventName = "Perch.Dock.Quit";
+
+    void ListenForQuit()
+    {
+        var quit = new EventWaitHandle(false, EventResetMode.AutoReset, QuitEventName);
+        var t = new Thread(() =>
+        {
+            quit.WaitOne();
+            Dispatcher.BeginInvoke(Shutdown);
+        }) { IsBackground = true, Name = "Perch.QuitListener" };
+        t.Start();
+    }
+
+    static void QuitRunningInstance()
+    {
+        if (!EventWaitHandle.TryOpenExisting(QuitEventName, out var quit)) return;
+        quit.Set();
+        // Wait (up to 10 s) for it to put the taskbar back and exit.
+        for (int i = 0; i < 100 && Mutex.TryOpenExisting(MutexName, out var m); i++)
+        {
+            m.Dispose();
+            Thread.Sleep(100);
+        }
     }
 
     public static void Log(Exception ex)
