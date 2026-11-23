@@ -58,8 +58,15 @@ public sealed class Settings
 
     public List<string> WorldClocks { get; set; } = [];
 
+    // Wallpapers
+    public bool WallpaperDaily { get; set; }
+    public DateTime WallpaperLastChange { get; set; }
+    /// <summary>The wallpaper the user had before Perch first changed it, so it can be put back.</summary>
+    public string OriginalWallpaper { get; set; } = "";
+    public string OriginalWallpaperStyle { get; set; } = "";
+
     /// <summary>Ordered dock contents: "start", "apps", "sep" and widget ids.</summary>
-    public List<string> Items { get; set; } = ["start", "search", "apps", "sep", "nowplaying", "weather", "cpu", "memory", "volume", "toggles", "tray", "clock", "trash"];
+    public List<string> Items { get; set; } = ["start", "launcher", "apps", "sep", "nowplaying", "weather", "cpu", "memory", "volume", "toggles", "wallpapers", "tray", "clock", "trash"];
 
     /// <summary>Which one-time upgrades have been applied to these settings (see <see cref="Upgrade"/>).</summary>
     public int Schema { get; set; }

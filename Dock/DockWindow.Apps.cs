@@ -18,6 +18,8 @@ public sealed partial class DockWindow
     /// <summary>Pinned apps first (in pin order), then running apps that aren't pinned.</summary>
     bool _refreshingApps;
 
+    static bool QuickLaunchOnDock => Settings.Current.Items.Contains("launcher");
+
     void RefreshApps()
     {
         if (_apps == null) return;
@@ -34,10 +36,13 @@ public sealed partial class DockWindow
         var groups = WindowTracker.Instance.Groups;
         var entries = new List<(string Key, PinnedApp? Pin, AppGroup? Group)>();
         var used = new HashSet<AppGroup>();
+        // With Quick launch on the dock, pinned apps live there: here they only appear while open.
+        bool launcher = QuickLaunchOnDock;
         foreach (var pin in s.Pins)
         {
             var g = groups.FirstOrDefault(x => !used.Contains(x) && Apps.Matches(pin, x));
             if (g != null) used.Add(g);
+            if (launcher && g == null) continue;
             entries.Add(("pin:" + pin.Launch.ToLowerInvariant() + "|" + pin.AppId, pin, g));
         }
         foreach (var g in groups.Where(g => !used.Contains(g))) entries.Add(("run:" + g.Key, null, g));
@@ -135,12 +140,12 @@ public sealed partial class DockWindow
         if (icon.Pin != null)
         {
             var pin = icon.Pin;
-            menu.Items.Add(Item("Unpin from dock", "", () => Apps.Unpin(pin)));
+            menu.Items.Add(Item(QuickLaunchOnDock ? "Remove from Quick launch" : "Unpin from dock", "", () => Apps.Unpin(pin)));
         }
         else if (icon.Group != null)
         {
             var g = icon.Group;
-            menu.Items.Add(Item("Pin to dock", "", () => Apps.Pin(Apps.FromGroup(g))));
+            menu.Items.Add(Item(QuickLaunchOnDock ? "Add to Quick launch" : "Pin to dock", "", () => Apps.Pin(Apps.FromGroup(g))));
         }
         string? location = icon.Pin?.Target ?? icon.Group?.ExePath ?? (icon.Pin?.Launch.EndsWith(".lnk", StringComparison.OrdinalIgnoreCase) == true ? icon.Pin.Launch : null);
         if (location != null && File.Exists(location)) menu.Items.Add(Item("Open file location", "", () => Apps.OpenFileLocation(location)));

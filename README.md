@@ -19,12 +19,16 @@ A dock for Windows 10 and 11 that replaces the taskbar: your pinned and open app
 
 | Group | Widgets |
 | --- | --- |
-| Essentials | Start, Search (apps, paths, websites, web search), Quick settings (Wi-Fi, Bluetooth, dark mode, brightness), Weather, Show desktop, Screenshot, Divider |
+| Essentials | Start, Quick launch (your pinned apps), System tray (brings up the Windows tray), Wallpapers, Search (apps, paths, websites, web search), Quick settings (Wi-Fi, Bluetooth, dark mode, brightness), Weather, Show desktop, Screenshot, Divider |
 | Time | Clock with calendar and world clocks, Date, Day progress |
 | System | CPU with busiest apps, Memory, Network speed, Storage, Battery |
 | Media | Now playing (any app that reports to Windows' media controls), Sound (volume, mute, microphone) |
 | Productivity | Focus timer (focus sessions with breaks, countdown, stopwatch), To-dos, Notes |
 | Files | Downloads, Recycle Bin |
+
+**Quick launch** holds your pinned apps in one tile. Add apps from Start's full app list (Store apps included) or by dragging them onto the tile. While Quick launch is on the dock, the apps group shows only open apps, so the dock stays short however many apps you pin.
+
+**Wallpapers** is a gallery of 15 original designs that Perch draws itself at your screen's resolution: mesh gradients, auroras, dunes, mountain ridges, petals, glass orbs, flowing lines, and one in your accent colour. Nothing is downloaded. Click one to set it, use *Surprise me* for a fresh layout, or switch on a new wallpaper every day. Images are saved in `Pictures\Perch Wallpapers` (the newest few are kept), and *Restore my old wallpaper* puts back the one you had before Perch first changed it. `Perch.exe --export-wallpapers <folder>` saves the whole gallery as PNG files.
 
 **Settings**: five styles (Midnight glass, Light glass, Black, White, Clear), accent colour, icon size, magnification, corner radius, spacing, padding, distance from the edge, full width, top or bottom edge, which display, auto-hide, lock, 12- or 24-hour clock, web search engine, temperature units, and start with Windows.
 

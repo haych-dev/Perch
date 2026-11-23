@@ -22,6 +22,16 @@ public partial class App : Application
             return;
         }
 
+        // "Perch.exe --export-wallpapers <folder>" saves the wallpaper gallery as PNG files at screen size.
+        int export = Array.FindIndex(e.Args, a => a.Equals("--export-wallpapers", StringComparison.OrdinalIgnoreCase));
+        if (export >= 0)
+        {
+            try { Wallpapers.Export(export + 1 < e.Args.Length ? e.Args[export + 1] : Path.Combine(Settings.Folder, "Gallery")); }
+            catch (Exception ex) { Perch.Core.Log.Error(ex, "wallpaper export failed"); }
+            Shutdown();
+            return;
+        }
+
         // "Perch.exe --quit" asks a running Perch to quit the normal way (the installer and uninstaller use it).
         if (e.Args.Contains("--quit", StringComparer.OrdinalIgnoreCase))
         {
@@ -59,6 +69,12 @@ public partial class App : Application
 
         _dock = new DockWindow();
         _dock.Start();
+
+        // "New wallpaper every day": checked shortly after start and then every 15 minutes.
+        var wallpaperTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(15) };
+        wallpaperTimer.Tick += (_, _) => Wallpapers.DailyCheck();
+        wallpaperTimer.Start();
+        Dispatcher.BeginInvoke(Wallpapers.DailyCheck, DispatcherPriority.ApplicationIdle);
 
         // First run: show where things are.
         if (firstRun)

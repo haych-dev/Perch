@@ -136,4 +136,71 @@ public static class Apps
         _startAppsAt = DateTime.Now;
         return _startApps;
     }
+
+    // ───────────── All apps (what Start lists, Store apps included) ─────────────
+    static List<(string Name, string Id)>? _allApps;
+    static DateTime _allAppsAt;
+
+    /// <summary>
+    /// Every app in Start's "All apps" list, read from the shell's Applications folder. Each id is either an
+    /// app user model ID (Store and many desktop apps) or a known-folder path to an exe. Call on the UI thread.
+    /// </summary>
+    public static List<(string Name, string Id)> AllApps()
+    {
+        if (_allApps != null && DateTime.Now - _allAppsAt < TimeSpan.FromMinutes(5)) return _allApps;
+        var list = new List<(string, string)>();
+        try
+        {
+            var t = Type.GetTypeFromProgID("Shell.Application");
+            if (t != null)
+            {
+                dynamic shell = Activator.CreateInstance(t)!;
+                dynamic folder = shell.NameSpace("shell:AppsFolder");
+                foreach (dynamic item in folder.Items())
+                {
+                    string name = item.Name, id = item.Path;
+                    if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(id)) continue;
+                    if (id.StartsWith("http", StringComparison.OrdinalIgnoreCase) || name.Contains("uninstall", StringComparison.OrdinalIgnoreCase)) continue;
+                    list.Add((name, id));
+                }
+            }
+        }
+        catch (Exception ex) { Log.Error(ex, "the All apps list could not be read"); }
+        if (list.Count == 0) list = StartMenuApps().Select(a => (a.Name, a.Path)).ToList(); // fallback
+        _allApps = list.GroupBy(a => a.Item1, StringComparer.OrdinalIgnoreCase).Select(g => g.First()).OrderBy(a => a.Item1).ToList();
+        _allAppsAt = DateTime.Now;
+        return _allApps;
+    }
+
+    /// <summary>A pin for an entry from <see cref="AllApps"/>.</summary>
+    public static PinnedApp FromAllApps(string name, string id)
+    {
+        if (File.Exists(id) || id.EndsWith(".lnk", StringComparison.OrdinalIgnoreCase)) return FromFile(id) ?? new PinnedApp { Name = name, Launch = id };
+        string? exe = ResolveKnownFolderPath(id);
+        bool isAppId = exe == null && !id.Contains('\\');
+        return new PinnedApp { Name = name, Launch = "shell:AppsFolder\\" + id, AppId = isAppId ? id : null, Target = exe };
+    }
+
+    /// <summary>True when a pin is the same app as an <see cref="AllApps"/> entry.</summary>
+    public static bool IsSameApp(PinnedApp pin, string id)
+    {
+        if (string.Equals(pin.Launch, "shell:AppsFolder\\" + id, StringComparison.OrdinalIgnoreCase) || string.Equals(pin.Launch, id, StringComparison.OrdinalIgnoreCase)) return true;
+        if (pin.AppId != null && string.Equals(pin.AppId, id, StringComparison.OrdinalIgnoreCase)) return true;
+        var exe = ResolveKnownFolderPath(id);
+        return exe != null && pin.Target != null && string.Equals(pin.Target, exe, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [System.Runtime.InteropServices.DllImport("shell32.dll")]
+    static extern int SHGetKnownFolderPath([System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.LPStruct)] Guid id, uint flags, IntPtr token, out IntPtr path);
+
+    /// <summary>Turns "{known-folder-guid}\sub\app.exe" into a real path, or null if it isn't one.</summary>
+    static string? ResolveKnownFolderPath(string id)
+    {
+        if (!id.StartsWith('{')) return null;
+        int close = id.IndexOf('}');
+        if (close < 0 || !Guid.TryParse(id[..(close + 1)], out var guid)) return null;
+        if (SHGetKnownFolderPath(guid, 0, IntPtr.Zero, out var p) != 0) return null;
+        try { return Path.Combine(System.Runtime.InteropServices.Marshal.PtrToStringUni(p) ?? "", id[(close + 1)..].TrimStart('\\')); }
+        finally { System.Runtime.InteropServices.Marshal.FreeCoTaskMem(p); }
+    }
 }

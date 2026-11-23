@@ -5,8 +5,10 @@ public static class WidgetRegistry
     static readonly (string Id, Func<Widget> Make)[] All =
     [
         ("start", () => new StartWidget()),
+        ("launcher", () => new LauncherWidget()),
         ("search", () => new SearchWidget()),
         ("tray", () => new TrayWidget()),
+        ("wallpapers", () => new WallpaperWidget()),
         ("sep", () => new SeparatorWidget()),
         ("clock", () => new ClockWidget()),
         ("date", () => new DateWidget()),
