@@ -26,7 +26,7 @@ A dock for Windows 10 and 11 that replaces the taskbar: your pinned and open app
 | Productivity | Focus timer (focus sessions with breaks, countdown, stopwatch), To-dos, Notes |
 | Files | Downloads, Recycle Bin |
 
-**Quick launch** holds your pinned apps in one tile. Add apps from Start's full app list (Store apps included) or by dragging them onto the tile. While Quick launch is on the dock, the apps group shows only open apps, so the dock stays short however many apps you pin.
+**Quick launch** holds your pinned apps in one tile. Add apps from the same list Start shows (Store apps included; help files, uninstallers and admin tools left out) or by dragging them onto the tile. While Quick launch is on the dock, the apps group shows only open apps, so the dock stays short however many apps you pin.
 
 **Wallpapers** is a gallery of 15 original designs that Perch draws itself at your screen's resolution: mesh gradients, auroras, dunes, mountain ridges, petals, glass orbs, flowing lines, and one in your accent colour. Nothing is downloaded. Click one to set it as your wallpaper and lock screen (the lock screen can be switched off), use *Surprise me* for a fresh layout, or switch on a new wallpaper every day. Images are saved in `Pictures\Perch Wallpapers` (the newest few are kept), and *Restore my old wallpaper* puts back the wallpaper and lock screen you had before Perch first changed them. `Perch.exe --export-wallpapers <folder>` saves the whole gallery as PNG files.
 

@@ -137,18 +137,62 @@ public static class Apps
         return _startApps;
     }
 
-    // ───────────── All apps (what Start lists, Store apps included) ─────────────
-    static List<(string Name, string Id)>? _allApps;
+    // ───────────── Start menu apps (what Start's app list shows) ─────────────
+
+    /// <summary>One app as Start lists it. Id is a shortcut path or a Store app's app user model ID.</summary>
+    public sealed record AppEntry(string Name, string Id, string? AppId, string? Target)
+    {
+        public bool IsShortcut => Id.EndsWith(".lnk", StringComparison.OrdinalIgnoreCase);
+        /// <summary>What to ask the shell for an icon.</summary>
+        public string IconSource => IsShortcut ? Id : "shell:AppsFolder\\" + Id;
+    }
+
+    static List<AppEntry>? _allApps;
     static DateTime _allAppsAt;
 
+    // Folders Start keeps out of its app list (Windows' admin consoles live in Windows Tools instead).
+    static readonly string[] HiddenStartFolders = ["Administrative Tools", "Windows Tools", "System Tools", "Windows Administrative Tools", "Startup"];
+
+    // Shortcuts that sit next to apps in Start folders but aren't apps.
+    static readonly System.Text.RegularExpressions.Regex NotAnApp = new(
+        @"(^uninstall|\buninstall$|\buninstall\s|\bhelp\b|help&support|manuals?\b|documentation|\bfaqs?\b|release notes|revision history|example scripts|module docs|website|on the web|support center|readme|read me|license|\bchanges\b|diagnostics?\b|logs collector|getting started|what's new|reset preferences|^administrative tools$)",
+        System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled);
+
     /// <summary>
-    /// Every app in Start's "All apps" list, read from the shell's Applications folder. Each id is either an
-    /// app user model ID (Store and many desktop apps) or a known-folder path to an exe. Call on the UI thread.
+    /// The apps Start shows: shortcuts in the Start menu folders that open a program, plus Store apps. Documents,
+    /// web links, help files, uninstallers and Windows' admin tools are left out. Call on the UI thread.
     /// </summary>
-    public static List<(string Name, string Id)> AllApps()
+    public static List<AppEntry> AllApps()
     {
         if (_allApps != null && DateTime.Now - _allAppsAt < TimeSpan.FromMinutes(5)) return _allApps;
-        var list = new List<(string, string)>();
+        var list = new List<AppEntry>();
+
+        foreach (var root in new[] { Environment.GetFolderPath(Environment.SpecialFolder.StartMenu), Environment.GetFolderPath(Environment.SpecialFolder.CommonStartMenu) })
+        {
+            string programs = Path.Combine(root, "Programs");
+            if (!Directory.Exists(programs)) continue;
+            IEnumerable<string> files;
+            try { files = Directory.EnumerateFiles(programs, "*.lnk", SearchOption.AllDirectories).ToList(); } catch { continue; }
+            foreach (var lnk in files)
+            {
+                var rel = Path.GetRelativePath(programs, lnk);
+                if (HiddenStartFolders.Any(f => rel.StartsWith(f + "\\", StringComparison.OrdinalIgnoreCase))) continue;
+                var name = Path.GetFileNameWithoutExtension(lnk);
+                if (NotAnApp.IsMatch(name)) continue;
+                var (target, appId, _) = Native.ReadShortcut(lnk);
+                // Keep shortcuts to programs, and app shortcuts with no file target (they launch by app ID).
+                if (!string.IsNullOrEmpty(target))
+                {
+                    var ext = Path.GetExtension(target).ToLowerInvariant();
+                    if (ext != ".exe") continue;
+                    var exeName = Path.GetFileNameWithoutExtension(target);
+                    if (exeName.StartsWith("unins", StringComparison.OrdinalIgnoreCase) || exeName.Contains("uninstall", StringComparison.OrdinalIgnoreCase)) continue;
+                }
+                list.Add(new AppEntry(name, lnk, appId, string.IsNullOrEmpty(target) ? null : target));
+            }
+        }
+
+        // Store apps (Notepad, Calculator, Photos…) aren't shortcuts; the shell's Applications folder lists them.
         try
         {
             var t = Type.GetTypeFromProgID("Shell.Application");
@@ -159,48 +203,32 @@ public static class Apps
                 foreach (dynamic item in folder.Items())
                 {
                     string name = item.Name, id = item.Path;
-                    if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(id)) continue;
-                    if (id.StartsWith("http", StringComparison.OrdinalIgnoreCase) || name.Contains("uninstall", StringComparison.OrdinalIgnoreCase)) continue;
-                    list.Add((name, id));
+                    if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(id) || !id.Contains('!') || NotAnApp.IsMatch(name)) continue;
+                    list.Add(new AppEntry(name, id, id, null));
                 }
             }
         }
-        catch (Exception ex) { Log.Error(ex, "the All apps list could not be read"); }
-        if (list.Count == 0) list = StartMenuApps().Select(a => (a.Name, a.Path)).ToList(); // fallback
-        _allApps = list.GroupBy(a => a.Item1, StringComparer.OrdinalIgnoreCase).Select(g => g.First()).OrderBy(a => a.Item1).ToList();
+        catch (Exception ex) { Log.Error(ex, "Store apps could not be listed"); }
+
+        // One entry per name; a shortcut wins over a Store entry of the same name.
+        _allApps = list.GroupBy(a => a.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.OrderByDescending(a => a.IsShortcut).First())
+            .OrderBy(a => a.Name, StringComparer.CurrentCultureIgnoreCase).ToList();
         _allAppsAt = DateTime.Now;
         return _allApps;
     }
 
     /// <summary>A pin for an entry from <see cref="AllApps"/>.</summary>
-    public static PinnedApp FromAllApps(string name, string id)
-    {
-        if (File.Exists(id) || id.EndsWith(".lnk", StringComparison.OrdinalIgnoreCase)) return FromFile(id) ?? new PinnedApp { Name = name, Launch = id };
-        string? exe = ResolveKnownFolderPath(id);
-        bool isAppId = exe == null && !id.Contains('\\');
-        return new PinnedApp { Name = name, Launch = "shell:AppsFolder\\" + id, AppId = isAppId ? id : null, Target = exe };
-    }
+    public static PinnedApp FromAllApps(AppEntry e) =>
+        e.IsShortcut
+            ? new PinnedApp { Name = e.Name, Launch = e.Id, Target = e.Target, AppId = e.AppId }
+            : new PinnedApp { Name = e.Name, Launch = "shell:AppsFolder\\" + e.Id, AppId = e.Id };
 
-    /// <summary>True when a pin is the same app as an <see cref="AllApps"/> entry.</summary>
-    public static bool IsSameApp(PinnedApp pin, string id)
+    /// <summary>True when a pin is the same app as an <see cref="AllApps"/> entry (by shortcut, app ID or program).</summary>
+    public static bool IsSameApp(PinnedApp pin, AppEntry e)
     {
-        if (string.Equals(pin.Launch, "shell:AppsFolder\\" + id, StringComparison.OrdinalIgnoreCase) || string.Equals(pin.Launch, id, StringComparison.OrdinalIgnoreCase)) return true;
-        if (pin.AppId != null && string.Equals(pin.AppId, id, StringComparison.OrdinalIgnoreCase)) return true;
-        var exe = ResolveKnownFolderPath(id);
-        return exe != null && pin.Target != null && string.Equals(pin.Target, exe, StringComparison.OrdinalIgnoreCase);
-    }
-
-    [System.Runtime.InteropServices.DllImport("shell32.dll")]
-    static extern int SHGetKnownFolderPath([System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.LPStruct)] Guid id, uint flags, IntPtr token, out IntPtr path);
-
-    /// <summary>Turns "{known-folder-guid}\sub\app.exe" into a real path, or null if it isn't one.</summary>
-    static string? ResolveKnownFolderPath(string id)
-    {
-        if (!id.StartsWith('{')) return null;
-        int close = id.IndexOf('}');
-        if (close < 0 || !Guid.TryParse(id[..(close + 1)], out var guid)) return null;
-        if (SHGetKnownFolderPath(guid, 0, IntPtr.Zero, out var p) != 0) return null;
-        try { return Path.Combine(System.Runtime.InteropServices.Marshal.PtrToStringUni(p) ?? "", id[(close + 1)..].TrimStart('\\')); }
-        finally { System.Runtime.InteropServices.Marshal.FreeCoTaskMem(p); }
+        if (string.Equals(pin.Launch, e.Id, StringComparison.OrdinalIgnoreCase) || string.Equals(pin.Launch, "shell:AppsFolder\\" + e.Id, StringComparison.OrdinalIgnoreCase)) return true;
+        if (pin.AppId != null && e.AppId != null && string.Equals(pin.AppId, e.AppId, StringComparison.OrdinalIgnoreCase)) return true;
+        return pin.Target != null && e.Target != null && string.Equals(pin.Target, e.Target, StringComparison.OrdinalIgnoreCase);
     }
 }

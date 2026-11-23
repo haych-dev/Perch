@@ -87,24 +87,23 @@ public sealed class LauncherWidget : Widget
             list.Children.Clear();
             int gen = ++generation;
             var q = box.Text.Trim();
-            // Start's full "All apps" list, so Store apps such as Notepad and Calculator are here too.
+            // The apps Start lists (Store apps included), without help files, uninstallers and admin tools.
             var apps = Apps.AllApps().Where(a => q.Length == 0 || a.Name.Contains(q, StringComparison.OrdinalIgnoreCase)).Take(60).ToList();
-            foreach (var (name, id) in apps)
+            foreach (var app in apps)
             {
-                var pinned = Settings.Current.Pins.FirstOrDefault(p => Apps.IsSameApp(p, id));
+                var entry = app;
+                var pinned = Settings.Current.Pins.FirstOrDefault(p => Apps.IsSameApp(p, entry));
                 var icon = new Image { Width = 24, Height = 24 };
                 // Icons are filled in after the list shows, so the list appears straight away.
-                var source = id.Contains('\\') && !id.StartsWith('{') ? id : "shell:AppsFolder\\" + id;
-                icon.Dispatcher.BeginInvoke(() => { if (gen == generation) icon.Source = ShellIcons.Get(source); }, System.Windows.Threading.DispatcherPriority.Background);
-                var label = Ui.Text(name, 13);
+                icon.Dispatcher.BeginInvoke(() => { if (gen == generation) icon.Source = ShellIcons.Get(entry.IconSource); }, System.Windows.Threading.DispatcherPriority.Background);
+                var label = Ui.Text(entry.Name, 13);
                 label.MaxWidth = 260;
                 var mark = Ui.Glyph(pinned != null ? "" : "", 13, pinned != null ? "Accent" : "Card.Dim");
-                string n = name, i = id;
                 list.Children.Add(Ui.ListRow(Ui.Line(Ui.Row(10, icon, label), mark), () =>
                 {
-                    var existing = Settings.Current.Pins.FirstOrDefault(x => Apps.IsSameApp(x, i));
+                    var existing = Settings.Current.Pins.FirstOrDefault(x => Apps.IsSameApp(x, entry));
                     if (existing != null) Apps.Unpin(existing);
-                    else Apps.Pin(Apps.FromAllApps(n, i));
+                    else Apps.Pin(Apps.FromAllApps(entry));
                     Fill();
                 }));
             }

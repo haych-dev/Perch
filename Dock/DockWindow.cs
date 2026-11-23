@@ -547,22 +547,35 @@ public sealed partial class DockWindow : Window, IDockHost
         if (slot == null) return;
 
         _label.Visibility = Visibility.Collapsed;
+        // Settle magnification before measuring. Otherwise the card is placed against a bar that is still
+        // widened by the hover, and it jumps sideways the next time it refreshes (e.g. removing an app).
+        _mouseX = double.NaN;
+        foreach (var sl in _slots) { sl.Current = 1; sl.ScaleT.ScaleX = sl.ScaleT.ScaleY = 1; }
+        _root.UpdateLayout();
         double cardW = w.CardWidth + 28; // card margin holds the shadow
-        double center = slot.TranslatePoint(new Point(slot.ActualWidth / 2, 0), _bar).X;
+        double center = slot.TranslatePoint(new Point(slot.ActualWidth / 2, 0), _root).X;
+        double barTop = _bar.TranslatePoint(new Point(0, 0), _root).Y;
+        double barBottom = barTop + _bar.ActualHeight;
         // StaysOpen is on so a click on another tile switches cards in one go; the card closes
         // when Perch loses focus, on Esc, or when another card opens.
+        // Perch places the card itself, relative to the dock window (which never moves): left edge centred on
+        // the tile, and for a bottom dock the card's bottom edge pinned above the bar whatever its height.
+        // Letting WPF place it relative to its size made it jump when the contents changed, because WPF placed
+        // the new contents before they had a size.
+        // The card's 14 px shadow margin plus 2 is the visible gap from the bar: 16 px.
+        _cardEdge = AtTop ? barBottom + 2 : barTop - 2;
         var popup = new Popup
         {
             AllowsTransparency = true,
             StaysOpen = true,
-            PlacementTarget = _bar,
-            Placement = AtTop ? PlacementMode.Bottom : PlacementMode.Top,
+            PlacementTarget = _root,
+            Placement = PlacementMode.Relative,
             HorizontalOffset = center - cardW / 2,
-            // The card's 14 px shadow margin minus this offset is the visible gap above the dock: 16 px.
-            VerticalOffset = AtTop ? 2 : -2,
+            VerticalOffset = _cardEdge,
             PopupAnimation = PopupAnimation.Fade,
-            Child = Ui.Card(content, w.CardWidth),
         };
+        SetCardContent(popup, Ui.Card(content, w.CardWidth));
+        popup.Opened += (_, _) => Dispatcher.BeginInvoke(() => { if (popup.Child is Border b) AlignCard(popup, b); }, DispatcherPriority.Loaded);
         popup.Closed += (_, _) =>
         {
             if (_card != popup) return;
@@ -587,7 +600,45 @@ public sealed partial class DockWindow : Window, IDockHost
     public void RefreshCard(Widget w)
     {
         if (_cardWidget != w || _card == null) return;
-        try { if (w.BuildCard() is { } c) _card.Child = Ui.Card(c, w.CardWidth); } catch (Exception ex) { App.Log(ex); }
+        try { if (w.BuildCard() is { } c) SetCardContent(_card, Ui.Card(c, w.CardWidth)); } catch (Exception ex) { App.Log(ex); }
+    }
+
+    /// <summary>For a bottom dock: where the card's bottom edge goes; for a top dock: where its top edge goes (window coordinates).</summary>
+    double _cardEdge;
+
+    /// <summary>Puts new contents in the card and keeps its edge next to the dock fixed as its height changes.</summary>
+    void SetCardContent(Popup popup, Border card)
+    {
+        if (!AtTop)
+        {
+            // DesiredSize includes the card's shadow margin, which is part of the popup's height.
+            card.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            popup.VerticalOffset = _cardEdge - card.DesiredSize.Height;
+            card.SizeChanged += (_, _) =>
+            {
+                if (popup.Child != card) return;
+                popup.VerticalOffset = _cardEdge - card.DesiredSize.Height;
+                Dispatcher.BeginInvoke(() => AlignCard(popup, card), DispatcherPriority.Loaded);
+            };
+        }
+        else card.SizeChanged += (_, _) => Dispatcher.BeginInvoke(() => AlignCard(popup, card), DispatcherPriority.Loaded);
+        popup.Child = card;
+        if (popup.IsOpen) Dispatcher.BeginInvoke(() => AlignCard(popup, card), DispatcherPriority.Loaded);
+    }
+
+    /// <summary>
+    /// Measures where the card actually is on screen and nudges it so its visible edge is exactly 16 px from the bar.
+    /// (WPF's popup placement is off by a few pixels relative to the dock window, so the estimate isn't enough.)
+    /// </summary>
+    void AlignCard(Popup popup, Border card)
+    {
+        if (_card != popup || popup.Child != card || !popup.IsOpen || PresentationSource.FromVisual(card) == null || PresentationSource.FromVisual(_bar) == null) return;
+        double scale = VisualTreeHelper.GetDpi(card).DpiScaleY;
+        double cardEdge = card.PointToScreen(new Point(0, AtTop ? 0 : card.ActualHeight)).Y;
+        double barEdge = _bar.PointToScreen(new Point(0, AtTop ? _bar.ActualHeight : 0)).Y;
+        double want = AtTop ? barEdge + 16 * scale : barEdge - 16 * scale;
+        double delta = (want - cardEdge) / scale;
+        if (Math.Abs(delta) > 0.5) popup.VerticalOffset += delta;
     }
 
     public void CloseCard()
