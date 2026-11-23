@@ -68,8 +68,23 @@ public static class Theme
         Set(r, "Tile.Stroke", s.Style == "clear" ? Color.FromArgb(0x38, 0xFF, 0xFF, 0xFF) : Colors.Transparent);
         Set(r, "Tile.Hover", s.Style == "clear" ? Color.FromArgb(0x66, 0x10, 0x12, 0x18) : light ? Color.FromArgb(0x2C, 0x00, 0x00, 0x00) : Color.FromArgb(0x2A, 0xFF, 0xFF, 0xFF));
 
-        Set(r, "Card.Fill", light ? Color.FromRgb(0xF8, 0xF8, 0xFA) : Color.FromRgb(0x1C, 0x1E, 0x25));
-        Set(r, "Card.Stroke", light ? Color.FromArgb(0x22, 0x00, 0x00, 0x00) : Color.FromArgb(0x2A, 0xFF, 0xFF, 0xFF));
+        // Cards carry the bar's look: see-through for Clear and the glass styles (dense enough to read over
+        // busy windows), solid for Black and White. Clear also gets the tiles' fine bright edge.
+        Set(r, "Card.Fill", s.Style switch
+        {
+            "clear" => Color.FromArgb(0xC8, 0x14, 0x16, 0x1C),
+            "midnight" => Color.FromArgb(0xD4, 0x14, 0x16, 0x1C),
+            "glass" => Color.FromArgb(0xDC, 0xF8, 0xF8, 0xFA),
+            "white" => Color.FromRgb(0xF8, 0xF8, 0xFA),
+            _ => Color.FromRgb(0x1C, 0x1E, 0x25),
+        });
+        Set(r, "Card.Stroke", s.Style switch
+        {
+            "clear" => Color.FromArgb(0x40, 0xFF, 0xFF, 0xFF),
+            "glass" => Color.FromArgb(0x80, 0xFF, 0xFF, 0xFF),
+            _ when light => Color.FromArgb(0x22, 0x00, 0x00, 0x00),
+            _ => Color.FromArgb(0x2E, 0xFF, 0xFF, 0xFF),
+        });
         Set(r, "Card.Text", light ? Color.FromRgb(0x16, 0x18, 0x1E) : Color.FromRgb(0xF2, 0xF4, 0xF8));
         Set(r, "Card.Dim", light ? Color.FromRgb(0x60, 0x67, 0x74) : Color.FromRgb(0x9A, 0xA3, 0xB2));
         Set(r, "Card.Field", light ? Color.FromArgb(0x12, 0x00, 0x00, 0x00) : Color.FromArgb(0x14, 0xFF, 0xFF, 0xFF));

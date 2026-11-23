@@ -558,7 +558,8 @@ public sealed partial class DockWindow : Window, IDockHost
             PlacementTarget = _bar,
             Placement = AtTop ? PlacementMode.Bottom : PlacementMode.Top,
             HorizontalOffset = center - cardW / 2,
-            VerticalOffset = AtTop ? -8 : 8,
+            // The card's 14 px shadow margin minus this offset is the visible gap above the dock: 16 px.
+            VerticalOffset = AtTop ? 2 : -2,
             PopupAnimation = PopupAnimation.Fade,
             Child = Ui.Card(content, w.CardWidth),
         };

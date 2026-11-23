@@ -48,6 +48,9 @@ public sealed class PreviewWindow : Window
     {
         Group = group;
         Clear();
+        // This window can't be see-through (live thumbnails need a normal window), so use the card colour solid.
+        var c = Theme.ColorOf("Card.Fill");
+        Background = new SolidColorBrush(Color.FromRgb(c.R, c.G, c.B));
         double tw = 210, th = 130;
         foreach (var w in group.Windows.Take(6))
         {

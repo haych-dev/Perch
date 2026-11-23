@@ -124,7 +124,8 @@ public static class Ui
         var b = new Border
         {
             Width = width,
-            CornerRadius = new CornerRadius(16),
+            // Same rounding as the dock bar, so cards look like part of it.
+            CornerRadius = new CornerRadius(Math.Clamp(Settings.Current.CornerRadius, 10, 28)),
             BorderThickness = new Thickness(1),
             Padding = new Thickness(16),
             Margin = new Thickness(14),

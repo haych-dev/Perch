@@ -28,7 +28,7 @@ A dock for Windows 10 and 11 that replaces the taskbar: your pinned and open app
 
 **Quick launch** holds your pinned apps in one tile. Add apps from Start's full app list (Store apps included) or by dragging them onto the tile. While Quick launch is on the dock, the apps group shows only open apps, so the dock stays short however many apps you pin.
 
-**Wallpapers** is a gallery of 15 original designs that Perch draws itself at your screen's resolution: mesh gradients, auroras, dunes, mountain ridges, petals, glass orbs, flowing lines, and one in your accent colour. Nothing is downloaded. Click one to set it, use *Surprise me* for a fresh layout, or switch on a new wallpaper every day. Images are saved in `Pictures\Perch Wallpapers` (the newest few are kept), and *Restore my old wallpaper* puts back the one you had before Perch first changed it. `Perch.exe --export-wallpapers <folder>` saves the whole gallery as PNG files.
+**Wallpapers** is a gallery of 15 original designs that Perch draws itself at your screen's resolution: mesh gradients, auroras, dunes, mountain ridges, petals, glass orbs, flowing lines, and one in your accent colour. Nothing is downloaded. Click one to set it as your wallpaper and lock screen (the lock screen can be switched off), use *Surprise me* for a fresh layout, or switch on a new wallpaper every day. Images are saved in `Pictures\Perch Wallpapers` (the newest few are kept), and *Restore my old wallpaper* puts back the wallpaper and lock screen you had before Perch first changed them. `Perch.exe --export-wallpapers <folder>` saves the whole gallery as PNG files.
 
 **Settings**: five styles (Midnight glass, Light glass, Black, White, Clear), accent colour, icon size, magnification, corner radius, spacing, padding, distance from the edge, full width, top or bottom edge, which display, auto-hide, lock, 12- or 24-hour clock, web search engine, temperature units, and start with Windows.
 
@@ -37,7 +37,7 @@ The glass styles blur the wallpaper behind the dock. Windows only draws the blur
 ## Privacy
 
 - Nothing is sent anywhere except the weather: the place you choose goes to [Open-Meteo](https://open-meteo.com) to fetch the forecast. Open-Meteo needs no account or key.
-- Settings, pins, to-dos and notes are kept in `%AppData%\Perch\settings.json`.
+- Settings, pins, to-dos and notes are kept in `%AppData%\Perch\settings.json`, with a copy of the last settings that loaded successfully in `settings.backup.json`.
 
 ## If the taskbar doesn't come back
 

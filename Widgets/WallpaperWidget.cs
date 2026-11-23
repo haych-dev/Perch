@@ -59,6 +59,11 @@ public sealed class WallpaperWidget : Widget
             Settings.Current.WallpaperDaily = on;
             Settings.SaveSoon();
         });
+        var lockToo = Ui.SwitchLine("Lock screen too", "Use the same picture when the PC is locked", s.LockScreenToo, on =>
+        {
+            Settings.Current.LockScreenToo = on;
+            Settings.SaveSoon();
+        });
         var surprise = Ui.Button("Surprise me", () => Run(Wallpapers.SurpriseAsync(), "Surprise"), "Primary");
         var restore = Ui.Button("Restore my old wallpaper", () =>
         {
@@ -72,6 +77,7 @@ public sealed class WallpaperWidget : Widget
             Ui.Line(Ui.Title("Wallpapers"), _status),
             Ui.Scroll(grid, 380),
             Ui.Divider(),
+            lockToo,
             daily,
             actions);
     }

@@ -14,7 +14,7 @@
     <SelfContained>false</SelfContained>
     <AssemblyName>Perch</AssemblyName>
     <RootNamespace>Perch</RootNamespace>
-    <Version>0.1.6</Version>
+    <Version>0.1.7</Version>
     <Product>Perch</Product>
     <Description>A dock with live widgets for Windows</Description>
     <ApplicationManifest>app.manifest</ApplicationManifest>

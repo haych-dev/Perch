@@ -64,6 +64,10 @@ public sealed class Settings
     /// <summary>The wallpaper the user had before Perch first changed it, so it can be put back.</summary>
     public string OriginalWallpaper { get; set; } = "";
     public string OriginalWallpaperStyle { get; set; } = "";
+    /// <summary>Set the chosen wallpaper on the lock screen too.</summary>
+    public bool LockScreenToo { get; set; } = true;
+    /// <summary>The lock screen picture the user had before Perch first changed it.</summary>
+    public string OriginalLockScreen { get; set; } = "";
 
     /// <summary>Ordered dock contents: "start", "apps", "sep" and widget ids.</summary>
     public List<string> Items { get; set; } = ["start", "launcher", "apps", "sep", "nowplaying", "weather", "cpu", "memory", "volume", "toggles", "wallpapers", "tray", "clock", "trash"];
@@ -83,6 +87,16 @@ public sealed class Settings
 
     // ─────────────────────────────────────────────
 
+    // The weather location is NaN until a place is chosen; JSON has no NaN, so it is written as "NaN".
+    // These options must be declared before Current: static fields are set up in the order they are written,
+    // and Current's Load() runs during that. When Current came first, Load() read with no options, could not
+    // read "NaN", and Perch started on defaults after every restart where no weather place was saved.
+    static readonly JsonSerializerOptions Json = new()
+    {
+        WriteIndented = true,
+        NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowNamedFloatingPointLiterals,
+    };
+
     public static Settings Current { get; private set; } = Load();
 
     /// <summary>Raised after a change. The flag says whether the dock needs to be rebuilt (size, edge, contents) or only refreshed.</summary>
@@ -90,28 +104,21 @@ public sealed class Settings
 
     public static string Folder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Perch");
     static string FilePath => Path.Combine(Folder, "settings.json");
-    // The weather location is NaN until a place is chosen; JSON has no NaN, so it is written as "NaN".
-    // Without this, every save failed until a place was set.
-    static readonly JsonSerializerOptions Json = new()
-    {
-        WriteIndented = true,
-        NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowNamedFloatingPointLiterals,
-    };
+    /// <summary>The last settings that loaded successfully, used if settings.json can't be read.</summary>
+    static string BackupPath => Path.Combine(Folder, "settings.backup.json");
     static DispatcherTimer? _saveTimer;
 
     static Settings Load()
     {
-        if (!File.Exists(FilePath)) return Fresh();
+        if (!File.Exists(FilePath)) return File.Exists(BackupPath) ? LoadBackupOrFresh() : Fresh();
         // At sign-in the file can be briefly locked (antivirus, indexing), so a failed read is retried
         // rather than quietly starting with defaults, which would then be saved over the user's settings.
         for (int attempt = 1; ; attempt++)
         {
             try
             {
-                var s = JsonSerializer.Deserialize<Settings>(File.ReadAllText(FilePath), Json) ?? Fresh();
-                s.IconSize = Math.Clamp(s.IconSize, 24, 96);
-                s.MagnifyScale = Math.Clamp(s.MagnifyScale, 1.0, 2.2);
-                s.Upgrade();
+                var s = Parse(File.ReadAllText(FilePath));
+                try { File.Copy(FilePath, BackupPath, true); } catch { } // this one is known good
                 return s;
             }
             catch (IOException ex) when (attempt < 10)
@@ -121,12 +128,36 @@ public sealed class Settings
             }
             catch (Exception ex)
             {
-                // Keep the unreadable file so nothing is lost, and say so in the log.
-                Log.Error(ex, "settings.json could not be loaded; starting with defaults");
+                // Keep the unreadable file so nothing is lost, say so in the log, and use the last good copy.
+                Log.Error(ex, "settings.json could not be loaded");
                 try { File.Copy(FilePath, Path.Combine(Folder, $"settings.unreadable-{DateTime.Now:yyyyMMdd-HHmmss}.json"), true); } catch { }
-                return Fresh();
+                return LoadBackupOrFresh();
             }
         }
+    }
+
+    static Settings Parse(string json)
+    {
+        var s = JsonSerializer.Deserialize<Settings>(json, Json) ?? Fresh();
+        s.IconSize = Math.Clamp(s.IconSize, 24, 96);
+        s.MagnifyScale = Math.Clamp(s.MagnifyScale, 1.0, 2.2);
+        s.Upgrade();
+        return s;
+    }
+
+    static Settings LoadBackupOrFresh()
+    {
+        try
+        {
+            if (File.Exists(BackupPath))
+            {
+                var s = Parse(File.ReadAllText(BackupPath));
+                Log.Error(new InvalidOperationException("Using the last good settings from settings.backup.json"), "settings restored from backup");
+                return s;
+            }
+        }
+        catch (Exception ex) { Log.Error(ex, "settings.backup.json could not be loaded either; starting with defaults"); }
+        return Fresh();
     }
 
     const int CurrentSchema = 1;

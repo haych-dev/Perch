@@ -422,6 +422,7 @@ public static class Wallpapers
     {
         var (w, h) = TargetSize();
         string accent = Settings.Current.Accent; // read on the UI thread
+        bool lockToo = Settings.Current.LockScreenToo;
         var done = new TaskCompletionSource();
         var t = new Thread(() =>
         {
@@ -438,6 +439,7 @@ public static class Wallpapers
                     enc.Save(fs);
                 }
                 SetWallpaper(path);
+                if (lockToo) SetLockScreen(path);
                 Cleanup(path);
                 done.SetResult();
             }
@@ -474,10 +476,41 @@ public static class Wallpapers
             throw new InvalidOperationException("Windows did not accept the wallpaper " + path);
     }
 
-    /// <summary>Saves the wallpaper the user had before Perch first changed it, so it can be put back.</summary>
+    /// <summary>Sets the lock screen picture (Windows' own lock screen API). Problems are logged, not thrown:
+    /// the desktop wallpaper is already set by then.</summary>
+    static void SetLockScreen(string path)
+    {
+        try
+        {
+            var file = Windows.Storage.StorageFile.GetFileFromPathAsync(path).AsTask().GetAwaiter().GetResult();
+            Windows.System.UserProfile.LockScreen.SetImageFileAsync(file).AsTask().GetAwaiter().GetResult();
+        }
+        catch (Exception ex) { Log.Error(ex, "the lock screen picture could not be set"); }
+    }
+
+    static string CurrentLockScreen()
+    {
+        try
+        {
+            var uri = Windows.System.UserProfile.LockScreen.OriginalImageFile;
+            return uri != null && uri.IsFile ? uri.LocalPath : "";
+        }
+        catch { return ""; }
+    }
+
+    /// <summary>Saves the wallpaper and lock screen the user had before Perch first changed them, so they can be put back.</summary>
     static void RememberOriginal()
     {
         var s = Settings.Current;
+        if (string.IsNullOrEmpty(s.OriginalLockScreen))
+        {
+            var lockPath = CurrentLockScreen();
+            if (lockPath.Length > 0 && !lockPath.StartsWith(Folder, StringComparison.OrdinalIgnoreCase) && File.Exists(lockPath))
+            {
+                s.OriginalLockScreen = lockPath;
+                Settings.SaveNow();
+            }
+        }
         if (!string.IsNullOrEmpty(s.OriginalWallpaper)) return;
         var cur = CurrentWallpaper();
         if (cur.StartsWith(Folder, StringComparison.OrdinalIgnoreCase)) return;
@@ -495,6 +528,7 @@ public static class Wallpapers
         if (!CanRestore) return;
         try { SetWallpaper(s.OriginalWallpaper, string.IsNullOrEmpty(s.OriginalWallpaperStyle) ? "10" : s.OriginalWallpaperStyle); }
         catch (Exception ex) { Log.Error(ex, "the original wallpaper could not be restored"); throw; }
+        if (!string.IsNullOrEmpty(s.OriginalLockScreen) && File.Exists(s.OriginalLockScreen)) SetLockScreen(s.OriginalLockScreen);
     }
 
     /// <summary>Keeps only the newest few images so the folder doesn't grow forever.</summary>
