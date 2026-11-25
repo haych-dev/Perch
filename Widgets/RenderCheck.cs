@@ -48,6 +48,7 @@ public static class RenderCheck
             try { tiles.Add((id, w, w.Tile)); } catch (Exception ex) { File.WriteAllText(Path.Combine(folder, id + "-error.txt"), ex.ToString()); }
         }
         await Task.Delay(6000); // let samplers and web requests come back
+        for (int i = 0; i < 60 && ids.Contains("claudecode") && ClaudeUsage.Instance.Current == null; i++) await Task.Delay(1000);
         foreach (var (id, w, tile) in tiles)
         {
             try { w.Tick(); } catch { }

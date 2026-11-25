@@ -27,6 +27,7 @@ A dock for Windows 10 and 11 that replaces the taskbar: your pinned and open app
 | Productivity | Focus timer (focus sessions with breaks, countdown, stopwatch), To-dos, Notes, Commands (your own one-click commands) |
 | Files | Downloads, Recent files, Recycle Bin |
 | Online | Currency (160 currencies), Crypto (Binance prices), GitHub activity, LeetCode |
+| AI | Claude Code (this 5-hour window, the last 7 days, most-used model and sessions working now) |
 
 **Quick launch** holds your pinned apps in one tile. Add apps from the same list Start shows (Store apps included; help files, uninstallers and admin tools left out) or by dragging them onto the tile. While Quick launch is on the dock, the apps group shows only open apps, so the dock stays short however many apps you pin.
 
@@ -43,6 +44,7 @@ The glass styles blur the wallpaper behind the dock. Windows only draws the blur
   - Currency: the currency code goes to [ExchangeRate-API](https://www.exchangerate-api.com)'s free rates.
   - Crypto: the coin symbols go to Binance's public price API.
   - GitHub activity and LeetCode: the user name you enter goes to GitHub or LeetCode, which return only public profile data.
+  - Claude Code reads Claude Code's own history files on your PC (`%UserProfile%\.claude\projects`). It doesn't read your Claude sign-in and sends nothing.
 - Settings, pins, to-dos and notes are kept in `%AppData%\Perch\settings.json`, with a copy of the last settings that loaded successfully in `settings.backup.json`.
 
 ## If the taskbar doesn't come back

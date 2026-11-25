@@ -61,6 +61,8 @@ public static class WidgetRegistry
         ("crypto", () => new CryptoWidget()),
         ("github", () => new GitHubWidget()),
         ("leetcode", () => new LeetCodeWidget()),
+        // AI
+        ("claudecode", () => new ClaudeCodeWidget()),
     ];
 
     public static Widget? Create(string id) => All.FirstOrDefault(x => x.Id == id).Make?.Invoke();
@@ -68,5 +70,5 @@ public static class WidgetRegistry
     /// <summary>One instance of each widget, for the picker's descriptions.</summary>
     public static List<Widget> Catalogue() => All.Select(x => x.Make()).ToList();
 
-    public static readonly string[] Categories = ["Essentials", "Time", "Weather", "System", "Media", "Productivity", "Files", "Online"];
+    public static readonly string[] Categories = ["Essentials", "Time", "Weather", "System", "Media", "Productivity", "Files", "Online", "AI"];
 }
