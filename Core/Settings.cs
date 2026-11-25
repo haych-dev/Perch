@@ -14,6 +14,13 @@ public sealed class PinnedApp
     public string? AppId { get; set; }
 }
 
+public sealed class SavedCommand
+{
+    public string Name { get; set; } = "";
+    /// <summary>A command line, a program, a folder or a web address.</summary>
+    public string Command { get; set; } = "";
+}
+
 public sealed class TodoItem
 {
     public string Text { get; set; } = "";
@@ -57,6 +64,21 @@ public sealed class Settings
     public bool Fahrenheit { get; set; }
 
     public List<string> WorldClocks { get; set; } = [];
+
+    // Online widgets (no accounts; only the names and codes below are sent)
+    public string CurrencyFrom { get; set; } = DefaultCurrency();
+    public string CurrencyTo { get; set; } = DefaultCurrency() == "USD" ? "EUR" : "USD";
+    public double CurrencyAmount { get; set; } = 1;
+    public List<string> CryptoSymbols { get; set; } = ["BTC", "ETH", "SOL"];
+    public string GitHubUser { get; set; } = "";
+    public string LeetCodeUser { get; set; } = "";
+    public List<SavedCommand> Commands { get; set; } = [];
+
+    static string DefaultCurrency()
+    {
+        try { return new System.Globalization.RegionInfo(System.Globalization.CultureInfo.CurrentCulture.Name).ISOCurrencySymbol; }
+        catch { return "USD"; }
+    }
 
     // Wallpapers
     public bool WallpaperDaily { get; set; }
@@ -199,8 +221,12 @@ public sealed class Settings
         _saveTimer.Start();
     }
 
+    /// <summary>Set by test modes so nothing they change is written to the user's settings file.</summary>
+    public static bool ReadOnly { get; set; }
+
     public static void SaveNow()
     {
+        if (ReadOnly) return;
         try
         {
             Directory.CreateDirectory(Folder);

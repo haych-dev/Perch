@@ -32,6 +32,21 @@ public partial class App : Application
             return;
         }
 
+#if DEBUG
+        int render = Array.FindIndex(e.Args, a => a.Equals("--render-widgets", StringComparison.OrdinalIgnoreCase));
+        if (render >= 0 && render + 2 < e.Args.Length)
+        {
+            Theme.Apply();
+            Dispatcher.BeginInvoke(async () =>
+            {
+                try { await Perch.Widgets.RenderCheck.Run(e.Args[render + 1], e.Args[render + 2].Split(',')); }
+                catch (Exception ex) { File.WriteAllText(Path.Combine(e.Args[render + 1], "render-error.txt"), ex.ToString()); }
+                Shutdown();
+            });
+            return;
+        }
+#endif
+
         // "Perch.exe --quit" asks a running Perch to quit the normal way (the installer and uninstaller use it).
         if (e.Args.Contains("--quit", StringComparer.OrdinalIgnoreCase))
         {

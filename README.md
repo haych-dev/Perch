@@ -20,11 +20,13 @@ A dock for Windows 10 and 11 that replaces the taskbar: your pinned and open app
 | Group | Widgets |
 | --- | --- |
 | Essentials | Start, Quick launch (your pinned apps), System tray (brings up the Windows tray), Wallpapers, Search (apps, paths, websites, web search), Quick settings (Wi-Fi, Bluetooth, dark mode, brightness), Weather, Show desktop, Screenshot, Divider |
-| Time | Clock with calendar and world clocks, Date, Day progress |
-| System | CPU with busiest apps, Memory, Network speed, Storage, Battery |
-| Media | Now playing (any app that reports to Windows' media controls), Sound (volume, mute, microphone) |
-| Productivity | Focus timer (focus sessions with breaks, countdown, stopwatch), To-dos, Notes |
-| Files | Downloads, Recycle Bin |
+| Time | Clock with calendar and world clocks, Date, Day progress, Analog clock, Flip clock, Segment clock, World clocks, Day number, Day timeline |
+| Weather | Next hours, Next days, Sunrise & sunset |
+| System | CPU with busiest apps, Memory, Network speed, Storage, Battery, Battery ring, GPU (load, plus temperature and video memory on NVIDIA), Top CPU, Top memory, Brightness (laptop screens and DDC/CI monitors), Light / dark, Notifications, Keyboard language |
+| Media | Now playing (any app that reports to Windows' media controls), Now playing (small), Sound (volume, mute, microphone), Microphone, Sound output (switch speakers and headphones) |
+| Productivity | Focus timer (focus sessions with breaks, countdown, stopwatch), To-dos, Notes, Commands (your own one-click commands) |
+| Files | Downloads, Recent files, Recycle Bin |
+| Online | Currency (160 currencies), Crypto (Binance prices), GitHub activity, LeetCode |
 
 **Quick launch** holds your pinned apps in one tile. Add apps from the same list Start shows (Store apps included; help files, uninstallers and admin tools left out) or by dragging them onto the tile. While Quick launch is on the dock, the apps group shows only open apps, so the dock stays short however many apps you pin.
 
@@ -36,7 +38,11 @@ The glass styles blur the wallpaper behind the dock. Windows only draws the blur
 
 ## Privacy
 
-- Nothing is sent anywhere except the weather: the place you choose goes to [Open-Meteo](https://open-meteo.com) to fetch the forecast. Open-Meteo needs no account or key.
+- Nothing is sent anywhere except what the widgets you add need, and none of them needs an account or key:
+  - Weather: the place you choose goes to [Open-Meteo](https://open-meteo.com).
+  - Currency: the currency code goes to [ExchangeRate-API](https://www.exchangerate-api.com)'s free rates.
+  - Crypto: the coin symbols go to Binance's public price API.
+  - GitHub activity and LeetCode: the user name you enter goes to GitHub or LeetCode, which return only public profile data.
 - Settings, pins, to-dos and notes are kept in `%AppData%\Perch\settings.json`, with a copy of the last settings that loaded successfully in `settings.backup.json`.
 
 ## If the taskbar doesn't come back
