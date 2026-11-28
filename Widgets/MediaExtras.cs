@@ -28,9 +28,14 @@ public sealed class MicWidget : Widget
     {
         var m = Audio.Microphone();
         if (_glyph == null) return;
-        _glyph.Text = !m.Available ? "" : m.Muted ? "" : "";
-        _glyph.SetResourceReference(TextBlock.ForegroundProperty, m.Available && m.Muted ? "Bad" : m.Available ? "Dock.Text" : "Dock.Dim");
+        int state = !m.Available ? 0 : m.Muted ? 1 : 2;
+        if (state == _state) return; // nothing to redraw
+        _state = state;
+        _glyph.Text = state == 0 ? "" : state == 1 ? "" : "";
+        _glyph.SetResourceReference(TextBlock.ForegroundProperty, state == 1 ? "Bad" : state == 2 ? "Dock.Text" : "Dock.Dim");
     }
+
+    int _state = -1;
 
     public override void OnClick()
     {
@@ -59,12 +64,12 @@ public sealed class AudioOutputWidget : Widget
         return Frame(Ui.Row(7 * Scale, TileGlyph("", 16), Ui.Col(0, TileText("Output", 9.5, null, "Dock.Dim"), _name)), null, 10);
     }
 
-    int _tick;
     public override void Tick()
     {
-        if (_name == null || (_tick++ % 5 != 0 && _name.Text.Length > 0)) return;
-        var d = Audio.Outputs().FirstOrDefault(x => x.IsDefault);
-        _name.Text = d.Name is { Length: > 0 } n ? Short(n) : "None";
+        if (_name == null) return;
+        // The kept default endpoint already knows its name, so this no longer lists every device.
+        var s = Audio.Speakers();
+        _name.Text = s.Available && s.Device.Length > 0 ? Short(s.Device) : "None";
     }
 
     /// <summary>"Speakers (Realtek(R) Audio)" → "Speakers".</summary>
@@ -86,7 +91,7 @@ public sealed class AudioOutputWidget : Widget
             label.MaxWidth = 250;
             list.Children.Add(Ui.ListRow(Ui.Row(6, mark, label), () =>
             {
-                if (Audio.SetDefaultOutput(dev.Id)) { _tick = 0; _name!.Text = ""; Tick(); Host.RefreshCard(this); }
+                if (Audio.SetDefaultOutput(dev.Id)) { Tick(); Host.RefreshCard(this); }
             }));
         }
         if (list.Children.Count == 0) list.Children.Add(Ui.Dim("No sound outputs found.", 12.5));

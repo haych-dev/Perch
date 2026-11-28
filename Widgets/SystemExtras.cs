@@ -127,10 +127,14 @@ public sealed class GpuWidget : Widget
     public override double CardWidth => 320;
     Sparkline? _spark, _big;
     TextBlock? _load, _temp, _bigLoad, _detail;
-    bool _started;
+    bool _started, _fresh;
 
-    public GpuWidget() { Gpu.Instance.Changed += Update; }
-    public override void Detach() { Gpu.Instance.Changed -= Update; if (_started) Gpu.Instance.Stop(); }
+    // New readings are drawn on the dock's one-second tick, together with the other tiles,
+    // instead of redrawing the dock again in between.
+    public GpuWidget() { Gpu.Instance.Changed += MarkFresh; }
+    void MarkFresh() => _fresh = true;
+    public override void Detach() { Gpu.Instance.Changed -= MarkFresh; if (_started) Gpu.Instance.Stop(); }
+    public override void Tick() { if (_fresh) { _fresh = false; Update(); } }
 
     protected override FrameworkElement BuildTile()
     {

@@ -60,7 +60,8 @@ public sealed class WindowTracker
         _timer.Tick += (_, _) => Refresh();
         _timer.Start();
 
-        _fgTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(150) };
+        // The foreground hook below reports changes as they happen; this is only a backstop.
+        _fgTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromSeconds(1) };
         _fgTimer.Tick += (_, _) => TrackForeground();
         _fgTimer.Start();
 

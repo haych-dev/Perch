@@ -12,6 +12,30 @@ public static class Audio
     {
         [PreserveSig] int EnumAudioEndpoints(int dataFlow, int stateMask, out IMMDeviceCollection devices);
         [PreserveSig] int GetDefaultAudioEndpoint(int dataFlow, int role, out IMMDevice device);
+        [PreserveSig] int GetDevice([MarshalAs(UnmanagedType.LPWStr)] string id, out IMMDevice device);
+        [PreserveSig] int RegisterEndpointNotificationCallback(IMMNotificationClient client);
+        [PreserveSig] int UnregisterEndpointNotificationCallback(IMMNotificationClient client);
+    }
+
+    [ComImport, Guid("7991EEC9-7E89-4D85-8390-6C703CEC60C0"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    interface IMMNotificationClient
+    {
+        [PreserveSig] int OnDeviceStateChanged([MarshalAs(UnmanagedType.LPWStr)] string id, int state);
+        [PreserveSig] int OnDeviceAdded([MarshalAs(UnmanagedType.LPWStr)] string id);
+        [PreserveSig] int OnDeviceRemoved([MarshalAs(UnmanagedType.LPWStr)] string id);
+        [PreserveSig] int OnDefaultDeviceChanged(int flow, int role, [MarshalAs(UnmanagedType.LPWStr)] string? id);
+        [PreserveSig] int OnPropertyValueChanged([MarshalAs(UnmanagedType.LPWStr)] string id, Native.PROPERTYKEY key);
+    }
+
+    /// <summary>Windows calls this (on its own thread) when devices come, go or the default changes.</summary>
+    sealed class DeviceWatch : IMMNotificationClient
+    {
+        static int Stale() { Interlocked.Increment(ref _generation); return 0; }
+        public int OnDeviceStateChanged(string id, int state) => Stale();
+        public int OnDeviceAdded(string id) => Stale();
+        public int OnDeviceRemoved(string id) => Stale();
+        public int OnDefaultDeviceChanged(int flow, int role, string? id) => Stale();
+        public int OnPropertyValueChanged(string id, Native.PROPERTYKEY key) => 0;
     }
 
     [ComImport, Guid("0BD7A1BE-7A1A-44DB-8397-CC5392387B5E"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
@@ -74,6 +98,7 @@ public static class Audio
             var pc = (IPolicyConfig)new PolicyConfigCom();
             bool ok = true;
             for (int role = 0; role < 3; role++) ok &= pc.SetDefaultEndpoint(id, role) == 0;
+            Interlocked.Increment(ref _generation); // don't wait for Windows' notification to switch
             return ok;
         }
         catch (Exception ex) { Log.Error(ex, "the default audio output could not be changed"); return false; }
@@ -146,29 +171,76 @@ public static class Audio
     public static State Speakers() => Read(eRender);
     public static State Microphone() => Read(eCapture);
 
+    // Finding the default device is a round trip to the Windows audio service (about 2 ms, and the dock
+    // reads the volume every second), so the endpoint is kept and only looked up again when Windows
+    // says the devices changed. Reading the volume from a kept endpoint takes about 10 µs.
+    static int _generation;
+    static IMMDeviceEnumerator? _watcher;
+    static DeviceWatch? _watch;
+    static readonly (IAudioEndpointVolume? Ep, string Name, int Gen)[] _cached = new (IAudioEndpointVolume?, string, int)[2];
+
+    static IAudioEndpointVolume? Cached(int flow, out string name)
+    {
+        if (_watcher == null)
+        {
+            try
+            {
+                var en = (IMMDeviceEnumerator)new MMDeviceEnumeratorCom();
+                var watch = new DeviceWatch();
+                if (en.RegisterEndpointNotificationCallback(watch) == 0) { _watcher = en; _watch = watch; }
+            }
+            catch { }
+        }
+        int gen = Volatile.Read(ref _generation);
+        var c = _cached[flow];
+        // Without the notification (it couldn't be registered) look the device up every time, as before.
+        if (c.Ep == null || c.Gen != gen || _watch == null)
+        {
+            c = (Endpoint(flow, out var n), n, gen);
+            _cached[flow] = c;
+        }
+        name = c.Name;
+        return c.Ep;
+    }
+
+    static void Forget(int flow) => _cached[flow] = default;
+
     static State Read(int flow)
     {
-        var ep = Endpoint(flow, out var name);
+        var ep = Cached(flow, out var name);
         if (ep == null) return new State(false, 0, false, "");
-        ep.GetMasterVolumeLevelScalar(out float level);
-        ep.GetMute(out bool muted);
-        return new State(true, level, muted, name);
+        try
+        {
+            if (ep.GetMasterVolumeLevelScalar(out float level) != 0 || ep.GetMute(out bool muted) != 0)
+            {
+                Forget(flow); // the device went away
+                return new State(false, 0, false, "");
+            }
+            return new State(true, level, muted, name);
+        }
+        catch { Forget(flow); return new State(false, 0, false, ""); }
     }
 
     public static void SetVolume(float level)
     {
-        var ep = Endpoint(eRender, out _);
+        var ep = Cached(eRender, out _);
         if (ep == null) return;
         var g = Guid.Empty;
-        ep.SetMasterVolumeLevelScalar(Math.Clamp(level, 0f, 1f), ref g);
-        if (level > 0) ep.SetMute(false, ref g);
+        try
+        {
+            if (ep.SetMasterVolumeLevelScalar(Math.Clamp(level, 0f, 1f), ref g) != 0) { Forget(eRender); return; }
+            if (level > 0) ep.SetMute(false, ref g);
+        }
+        catch { Forget(eRender); }
     }
 
     public static void SetMute(bool mute, bool microphone = false)
     {
-        var ep = Endpoint(microphone ? eCapture : eRender, out _);
+        int flow = microphone ? eCapture : eRender;
+        var ep = Cached(flow, out _);
         if (ep == null) return;
         var g = Guid.Empty;
-        ep.SetMute(mute, ref g);
+        try { if (ep.SetMute(mute, ref g) != 0) Forget(flow); }
+        catch { Forget(flow); }
     }
 }

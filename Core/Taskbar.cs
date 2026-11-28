@@ -79,9 +79,12 @@ public static class Taskbar
     {
         if (!IsHidden) return;
         if (DateTime.Now < _peekUntil) return; // a Tray click is bringing it up
+        // Nearly always every taskbar is still hidden: check that first, it's far cheaper than
+        // finding out which program owns the foreground window.
+        var shown = AllTaskbars().Where(Native.IsWindowVisible).ToList();
+        if (shown.Count == 0) return;
         if (ShellSurfaceOpen()) return; // leave Start, search, the tray and its flyouts alone
-        foreach (var h in AllTaskbars())
-            if (Native.IsWindowVisible(h)) Native.ShowWindow(h, Native.SW_HIDE);
+        foreach (var h in shown) Native.ShowWindow(h, Native.SW_HIDE);
     }
 
     /// <summary>True while Start, search, the quick settings or notification flyouts have focus.</summary>

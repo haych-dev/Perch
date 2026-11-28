@@ -16,6 +16,8 @@ public sealed class ClaudeCodeWidget : Widget
     public override double CardWidth => 340;
 
     static readonly Color Orange = Color.FromRgb(0xD9, 0x77, 0x57);
+    static readonly SolidColorBrush OrangeBrush = Frozen(new SolidColorBrush(Orange));
+    static T Frozen<T>(T f) where T : Freezable { f.Freeze(); return f; }
     TextBlock? _main, _sub;
 
     public ClaudeCodeWidget()
@@ -165,7 +167,7 @@ public sealed class ClaudeCodeWidget : Widget
             if (w <= 0) return;
             var c = new Point(w / 2, h / 2);
             double r = Math.Min(w, h) / 2;
-            var pen = new Pen(new SolidColorBrush(Orange), Math.Max(1.4, r * 0.2)) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
+            var pen = Frozen(new Pen(OrangeBrush, Math.Max(1.4, r * 0.2)) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round });
             for (int i = 0; i < 10; i++)
             {
                 double a = i * Math.PI / 5 + 0.15;

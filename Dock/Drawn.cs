@@ -37,11 +37,27 @@ public sealed class Sparkline : FrameworkElement
             }
             ac.LineTo(new Point(w, h), false, false);
         }
+        line.Freeze();
+        area.Freeze();
         var c = Theme.ColorOf(BrushKey);
-        var fill = new LinearGradientBrush(Color.FromArgb(0x70, c.R, c.G, c.B), Color.FromArgb(0x08, c.R, c.G, c.B), 90);
-        dc.DrawGeometry(fill, null, area);
-        dc.DrawGeometry(null, new Pen(new SolidColorBrush(c), 1.4) { LineJoin = PenLineJoin.Round }, line);
+        if (c != _color || _fill == null || _pen == null)
+        {
+            // Frozen and reused, so redrawing every second doesn't create (and track) new brushes each time.
+            _color = c;
+            _fill = new LinearGradientBrush(Color.FromArgb(0x70, c.R, c.G, c.B), Color.FromArgb(0x08, c.R, c.G, c.B), 90);
+            _fill.Freeze();
+            var stroke = new SolidColorBrush(c);
+            stroke.Freeze();
+            _pen = new Pen(stroke, 1.4) { LineJoin = PenLineJoin.Round };
+            _pen.Freeze();
+        }
+        dc.DrawGeometry(_fill, null, area);
+        dc.DrawGeometry(null, _pen, line);
     }
+
+    Color _color;
+    Brush? _fill;
+    Pen? _pen;
 }
 
 /// <summary>A circular progress ring with optional centre text.</summary>

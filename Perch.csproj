@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
@@ -14,7 +14,7 @@
     <SelfContained>false</SelfContained>
     <AssemblyName>Perch</AssemblyName>
     <RootNamespace>Perch</RootNamespace>
-    <Version>0.1.10</Version>
+    <Version>0.1.11</Version>
     <Product>Perch</Product>
     <Description>A dock with live widgets for Windows</Description>
     <ApplicationManifest>app.manifest</ApplicationManifest>

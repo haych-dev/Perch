@@ -676,7 +676,12 @@ public sealed partial class DockWindow : Window, IDockHost
         var s = Settings.Current;
         _pollCount++;
 
-        if (s.HideInFullscreen && _pollCount % 5 == 0)
+        // Auto-hide follows the pointer, so it needs ten checks a second. Without it, only the
+        // full-screen check runs, and twice a second is plenty for that.
+        var interval = TimeSpan.FromMilliseconds(s.AutoHide ? 100 : 500);
+        if (_poll.Interval != interval) _poll.Interval = interval;
+
+        if (s.HideInFullscreen && (!s.AutoHide || _pollCount % 5 == 0))
         {
             bool fs = ForegroundIsFullscreen();
             if (fs != _fullscreenHidden)

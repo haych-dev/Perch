@@ -40,9 +40,14 @@ public sealed class SystemSampler
     Timer? _timer;
     Dispatcher? _ui;
 
+    NetworkInterface[]? _nics;
+    bool _nicsStale;
+
     public void Start(Dispatcher ui)
     {
         _ui = ui;
+        NetworkChange.NetworkAddressChanged += (_, _) => _nicsStale = true;
+        NetworkChange.NetworkAvailabilityChanged += (_, _) => _nicsStale = true;
         _timer = new Timer(_ => Tick(), null, 0, 1000);
     }
 
@@ -76,18 +81,30 @@ public sealed class SystemSampler
 
         try
         {
-            long rx = 0, tx = 0;
-            foreach (var nic in NetworkInterface.GetAllNetworkInterfaces())
+            // Listing the adapters is the expensive part (about 12 ms), so the list is kept and only
+            // rebuilt when Windows reports a network change, or once a minute.
+            if (_nics == null || _tick % 60 == 0 || Volatile.Read(ref _nicsStale))
             {
-                if (nic.OperationalStatus != OperationalStatus.Up || nic.NetworkInterfaceType is NetworkInterfaceType.Loopback or NetworkInterfaceType.Tunnel) continue;
-                if (nic.Description.Contains("Filter", StringComparison.OrdinalIgnoreCase) || nic.Description.Contains("Virtual", StringComparison.OrdinalIgnoreCase)) continue;
+                _nicsStale = false;
+                var nics = NetworkInterface.GetAllNetworkInterfaces().Where(nic =>
+                    nic.OperationalStatus == OperationalStatus.Up
+                    && nic.NetworkInterfaceType is not (NetworkInterfaceType.Loopback or NetworkInterfaceType.Tunnel)
+                    && !nic.Description.Contains("Filter", StringComparison.OrdinalIgnoreCase)
+                    && !nic.Description.Contains("Virtual", StringComparison.OrdinalIgnoreCase)).ToArray();
+                // A different set of adapters gives totals that can't be compared with the last ones.
+                if (_nics == null || !nics.Select(n => n.Id).SequenceEqual(_nics.Select(n => n.Id))) _netPrimed = false;
+                _nics = nics;
+            }
+            long rx = 0, tx = 0;
+            foreach (var nic in _nics)
+            {
                 var st = nic.GetIPStatistics();
                 rx += st.BytesReceived; tx += st.BytesSent;
             }
             if (_netPrimed) { s.NetDown = Math.Max(0, (rx - _prevRx) / dt); s.NetUp = Math.Max(0, (tx - _prevTx) / dt); }
             _prevRx = rx; _prevTx = tx; _netPrimed = true;
         }
-        catch { }
+        catch { _nicsStale = true; }
 
         if (Native.GetSystemPowerStatus(out var ps))
         {
@@ -175,7 +192,15 @@ public sealed class Ring(int size)
     public int Count => _count;
     public int Capacity => size;
     public double this[int i] => _v[(_start + i) % size];
-    public double Max => _count == 0 ? 0 : Enumerable.Range(0, _count).Max(i => this[i]);
+    public double Max
+    {
+        get
+        {
+            double m = _count == 0 ? 0 : double.MinValue;
+            for (int i = 0; i < _count; i++) m = Math.Max(m, this[i]);
+            return m;
+        }
+    }
     public void Push(double x)
     {
         if (_count < size) _v[(_start + _count++) % size] = x;
